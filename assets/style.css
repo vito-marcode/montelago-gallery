@@ -645,21 +645,49 @@ main { padding: clamp(12px, 3vw, 28px); max-width: var(--maxw); margin: 0 auto; 
   border-top-color: #fff;
 }
 
+/* Zona sensibile alta come la foto lungo i due bordi: il pulsante tondo
+   compare solo passandoci sopra, come in Google Foto */
 .lb-nav {
-  flex: none;
-  width: 56px;
-  align-self: stretch;
-  font-size: 2.4rem;
-  line-height: 1;
-  color: #fff;
-  background: transparent;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 2;
+  width: clamp(56px, 11%, 104px);
+  display: grid;
+  place-items: center;
+  padding: 0;
   border: 0;
+  background: none;
   cursor: pointer;
-  opacity: .55;
-  transition: opacity .15s ease, background .15s ease;
 }
 
-.lb-nav:hover { opacity: 1; background: rgba(255, 255, 255, .07); }
+.lb-prev { left: 0; }
+.lb-next { right: 0; }
+
+.lb-nav > span {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(58, 62, 68, .8);
+  color: #fff;
+  font-size: 1.7rem;
+  line-height: 1;
+  /* Il glifo ‹ › non è centrato sulla sua cassa tipografica */
+  text-indent: -.06em;
+  opacity: 0;
+  transition: opacity .16s ease, background .16s ease;
+}
+
+.lb-nav:hover > span,
+.lb-nav:focus-visible > span { opacity: 1; }
+
+.lb-nav:hover > span { background: rgba(78, 83, 90, .92); }
+
+@media (prefers-reduced-motion: reduce) {
+  .lb-nav > span { transition-duration: 0s; }
+}
 
 .lb-info {
   margin: 0;
@@ -672,9 +700,13 @@ main { padding: clamp(12px, 3vw, 28px); max-width: var(--maxw); margin: 0 auto; 
 /* Su schermi stretti e sui dispositivi a tocco la foto prende tutto lo
    schermo: barra e didascalia si sovrappongono invece di rubare altezza, e
    le frecce sparaiscono perché si scorre col dito. */
-@media (max-width: 820px), (hover: none) and (pointer: coarse) {
+/* Le frecce sono superflue solo dove si scorre col dito: su una finestra
+   desktop stretta servono, perché non c'è modo di scorrere */
+@media (hover: none) and (pointer: coarse) {
   .lb-nav { display: none; }
+}
 
+@media (max-width: 820px), (hover: none) and (pointer: coarse) {
   .lb-bar {
     position: absolute;
     top: 0;
