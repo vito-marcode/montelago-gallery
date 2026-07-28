@@ -672,13 +672,19 @@ main { padding: clamp(12px, 3vw, 28px); max-width: var(--maxw); margin: 0 auto; 
   border-radius: 50%;
   background: rgba(58, 62, 68, .8);
   color: #fff;
-  font-size: 1.7rem;
-  line-height: 1;
-  /* Il glifo ‹ › non è centrato sulla sua cassa tipografica */
-  text-indent: -.06em;
   opacity: 0;
   transition: opacity .16s ease, background .16s ease;
 }
+
+/* Un chevron disegnato, non un glifo di testo: i caratteri ‹ › stanno alti
+   nella loro cassa tipografica e restavano sopra il centro del cerchio */
+.lb-nav .chevron {
+  width: 22px;
+  height: 22px;
+  display: block;
+}
+
+.lb-prev .chevron { transform: rotate(180deg); }
 
 .lb-nav:hover > span,
 .lb-nav:focus-visible > span { opacity: 1; }
