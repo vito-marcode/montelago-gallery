@@ -167,15 +167,38 @@ select, .btn { cursor: pointer; }
 
 /* ---------- barra della selezione ---------- */
 
+/* Pannello fisso in basso: si sovrappone alla griglia invece di spingerla,
+   così entrando in selezione le foto non si spostano */
 .selbar {
-  flex: 1 0 100%;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px 12px;
-  border-top: 1px solid var(--border);
-  padding-top: 12px;
+  padding: 12px clamp(12px, 3vw, 28px);
+  padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
   font-size: .87rem;
+  background: color-mix(in srgb, var(--bg-elev) 92%, transparent);
+  backdrop-filter: blur(12px);
+  border-top: 1px solid var(--border);
+  box-shadow: 0 -6px 26px rgba(0, 0, 0, .35);
+  /* Chiuso resta fuori schermo: visibility evita che riceva il focus */
+  visibility: hidden;
+  transform: translateY(100%);
+  transition: transform .22s ease, visibility .22s;
+}
+
+.selbar.open {
+  visibility: visible;
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .selbar { transition-duration: 0s; }
 }
 
 .sel-hint { color: var(--fg-dim); font-size: .8rem; }

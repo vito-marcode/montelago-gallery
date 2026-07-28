@@ -333,7 +333,7 @@ function updateSelectionUi() {
   const chosen = selectedPhotos();
   const bytes = chosen.reduce((sum, p) => sum + p.size, 0);
 
-  dom.selbar.hidden = !state.selecting;
+  dom.selbar.classList.toggle('open', state.selecting);
   dom.grid.classList.toggle('selecting', state.selecting);
   dom.selectBtn.textContent = state.selecting ? 'Esci dalla selezione' : 'Seleziona';
 
@@ -343,7 +343,17 @@ function updateSelectionUi() {
   dom.selDownload.disabled = !chosen.length || state.downloading;
   dom.selDownloadText.textContent = chosen.length ? `Scarica (${chosen.length})` : 'Scarica';
   dom.selAll.textContent = chosen.length === state.photos.length ? 'Deseleziona tutte' : 'Seleziona tutte';
+  syncSelbarSpace();
 }
+
+/* Il pannello copre il fondo della pagina: si aggiunge spazio in coda perché
+   l'ultima fila di foto resti raggiungibile. Non sposta nulla di visibile. */
+function syncSelbarSpace() {
+  document.body.style.paddingBottom = state.selecting ? `${dom.selbar.offsetHeight}px` : '';
+}
+
+/* L'altezza cambia col ritorno a capo dei pulsanti e con la barra di avanzamento */
+new ResizeObserver(syncSelbarSpace).observe(dom.selbar);
 
 function setSelecting(on) {
   state.selecting = on;

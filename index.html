@@ -46,24 +46,6 @@
     <button type="button" id="select-btn" class="btn">Seleziona</button>
   </div>
 
-  <div id="selbar" class="selbar" hidden>
-    <strong id="sel-count">Nessuna foto selezionata</strong>
-    <span class="sel-hint" id="sel-hint">Tieni premuto su una foto per selezionarla · Maiusc per un intervallo</span>
-    <span class="lb-spacer"></span>
-    <button type="button" class="btn" id="sel-all">Seleziona tutte</button>
-    <button type="button" class="btn btn-primary btn-icon" id="sel-download" disabled>
-      <svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>
-      <span id="sel-download-text">Scarica</span>
-    </button>
-    <button type="button" class="btn" id="sel-cancel">Annulla</button>
-
-    <div class="sel-progress" id="sel-progress" hidden>
-      <div class="sel-track"><div class="sel-fill" id="sel-fill"></div></div>
-      <span id="sel-progress-text"></span>
-      <button type="button" class="btn" id="sel-abort">Interrompi</button>
-    </div>
-  </div>
-
   <form id="change-panel" class="change-panel" hidden>
     <label for="bucket-input">URL della cartella nel bucket S3</label>
     <div class="change-row">
@@ -100,6 +82,24 @@
   <p id="footer-source"></p>
   <p class="hint">Le anteprime sono generate dal servizio pubblico <a href="https://wsrv.nl" rel="noopener">wsrv.nl</a>. Il pulsante Scarica usa sempre i file originali del bucket.</p>
 </footer>
+
+<div id="selbar" class="selbar" role="region" aria-label="Foto selezionate">
+  <strong id="sel-count">Nessuna foto selezionata</strong>
+  <span class="sel-hint" id="sel-hint">Tieni premuto su una foto per selezionarla · Maiusc per un intervallo</span>
+  <span class="lb-spacer"></span>
+  <button type="button" class="btn" id="sel-all">Seleziona tutte</button>
+  <button type="button" class="btn btn-primary btn-icon" id="sel-download" disabled>
+    <svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>
+    <span id="sel-download-text">Scarica</span>
+  </button>
+  <button type="button" class="btn" id="sel-cancel">Annulla</button>
+
+  <div class="sel-progress" id="sel-progress" hidden>
+    <div class="sel-track"><div class="sel-fill" id="sel-fill"></div></div>
+    <span id="sel-progress-text"></span>
+    <button type="button" class="btn" id="sel-abort">Interrompi</button>
+  </div>
+</div>
 
 <div id="lightbox" class="lightbox" hidden role="dialog" aria-modal="true" aria-label="Foto ingrandita">
   <div class="lb-bar">
