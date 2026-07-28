@@ -1195,7 +1195,6 @@ dom.lbStage.addEventListener('pointerdown', (e) => {
   if (e.target.closest('.lb-nav')) return;
 
   punti.set(e.pointerId, { x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY });
-  dom.lbStage.setPointerCapture(e.pointerId);
 
   if (punti.size === 2) {
     pinchPrec = misuraPinch();
@@ -1204,6 +1203,12 @@ dom.lbStage.addEventListener('pointerdown', (e) => {
     trascinaPrec = { x: e.clientX, y: e.clientY };
     if (ingrandita()) dom.lb.classList.add('trascina');
   }
+
+  /* Tiene il gesto legato all'area anche se il dito ne esce. Va per ultimo e
+     protetto: se fallisse, lo stato del gesto è già pronto e non si perde. */
+  try {
+    dom.lbStage.setPointerCapture(e.pointerId);
+  } catch { /* puntatore non più attivo */ }
 });
 
 dom.lbStage.addEventListener('pointermove', (e) => {
