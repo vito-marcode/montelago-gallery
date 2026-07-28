@@ -13,6 +13,10 @@ const PROXY_BASE = 'https://wsrv.nl/?url=';
 const THUMB_STEPS = [320, 480, 640, 800, 1024];
 const PREVIEW_WIDTH = 1600;
 const PAGE_SIZE = 1000;
+/* Quante foto attorno a quella aperta far preparare in anticipo */
+const PRELOAD_RADIUS = 3;
+/* Attesa prima di preparare l'anteprima della foto sotto il puntatore */
+const HOVER_DELAY = 150;
 
 const collator = new Intl.Collator('it', { numeric: true, sensitivity: 'base' });
 
@@ -37,6 +41,7 @@ const dom = {
   footerSource: el('footer-source'),
   lb: el('lightbox'),
   lbImg: el('lb-img'),
+  lbPlaceholder: el('lb-placeholder'),
   lbName: el('lb-name'),
   lbCounter: el('lb-counter'),
   lbInfo: el('lb-info'),
@@ -191,6 +196,36 @@ function proxied(photo, width) {
 const thumbUrl = (photo) => (state.optimize ? proxied(photo, state.thumbW) : objectUrl(photo));
 const previewUrl = (photo) => (state.optimize ? proxied(photo, PREVIEW_WIDTH) : objectUrl(photo));
 
+/* ------------------------------------------------- preparazione anteprime */
+
+const warmed = new Set();
+
+/* La prima apertura di una foto è la più lenta: il proxy deve scaricarsi
+   l'originale dal bucket e ridimensionarlo. Questa richiesta lo fa lavorare
+   in anticipo, così l'anteprima grande è già pronta in cache al momento del
+   clic. La risposta non serve: interessa solo che venga generata. */
+function warmPreview(photo) {
+  if (!state.optimize || !photo || warmed.has(photo.key)) return;
+  warmed.add(photo.key);
+  fetch(previewUrl(photo), { mode: 'no-cors', credentials: 'omit', priority: 'low' })
+    .catch(() => warmed.delete(photo.key));
+}
+
+/* Anteprime adiacenti: quella subito prima e dopo vengono decodificate
+   (servono all'istante), le più lontane solo preparate sul proxy */
+function preloadAround() {
+  const n = state.photos.length;
+  const current = state.photos[state.index];
+  for (let distance = 1; distance <= PRELOAD_RADIUS; distance += 1) {
+    for (const offset of [distance, -distance]) {
+      const photo = state.photos[(((state.index + offset) % n) + n) % n];
+      if (!photo || photo === current) continue;
+      if (distance === 1) new Image().src = previewUrl(photo);
+      else warmPreview(photo);
+    }
+  }
+}
+
 /* ---------------------------------------------------------------- griglia */
 
 const observer = new IntersectionObserver((entries) => {
@@ -281,8 +316,16 @@ function showCurrent() {
   const photo = state.photos[state.index];
   if (!photo) return;
 
-  dom.lb.classList.remove('ready');
+  dom.lb.classList.remove('ready', 'lqip');
   dom.lbImg.removeAttribute('src');
+  dom.lbPlaceholder.removeAttribute('src');
+
+  /* La miniatura della griglia è già scaricata: la si mostra ingrandita per
+     non lasciare lo schermo nero mentre arriva l'anteprima a piena grandezza.
+     Senza le anteprime leggere non serve: griglia e lightbox usano lo stesso
+     file originale, quindi è già in cache. */
+  if (state.optimize) dom.lbPlaceholder.src = thumbUrl(photo);
+
   dom.lbImg.alt = photo.name;
   dom.lbImg.src = previewUrl(photo);
 
@@ -299,11 +342,7 @@ function showCurrent() {
   dom.lbPrev.hidden = single;
   dom.lbNext.hidden = single;
 
-  /* Precarica le foto adiacenti per una navigazione fluida */
-  for (const offset of [1, -1]) {
-    const neighbour = state.photos[(state.index + offset + state.photos.length) % state.photos.length];
-    if (neighbour && neighbour !== photo) new Image().src = previewUrl(neighbour);
-  }
+  preloadAround();
 }
 
 function openAt(index, { fromHistory = false } = {}) {
@@ -463,6 +502,25 @@ dom.grid.addEventListener('click', (e) => {
   if (tile) openAt(Number(tile.dataset.i));
 });
 
+const photoOf = (e) => {
+  const tile = e.target.closest('.tile');
+  return tile ? state.photos[Number(tile.dataset.i)] : null;
+};
+
+/* Prepara l'anteprima grande già prima del clic: al passaggio del puntatore
+   (con un attimo di attesa, per non scaldare tutto ciò che si sfiora), alla
+   pressione e quando un riquadro riceve il focus da tastiera */
+let hoverTimer = 0;
+dom.grid.addEventListener('pointerover', (e) => {
+  const photo = photoOf(e);
+  if (!photo) return;
+  clearTimeout(hoverTimer);
+  hoverTimer = setTimeout(() => warmPreview(photo), HOVER_DELAY);
+});
+
+dom.grid.addEventListener('pointerdown', (e) => warmPreview(photoOf(e)));
+dom.grid.addEventListener('focusin', (e) => warmPreview(photoOf(e)));
+
 dom.sort.addEventListener('change', () => {
   state.sort = dom.sort.value;
   const current = state.photos[state.index];
@@ -496,6 +554,11 @@ dom.changePanel.addEventListener('submit', (e) => {
 });
 
 dom.lbImg.addEventListener('load', () => dom.lb.classList.add('ready'));
+
+/* Se l'anteprima grande è già arrivata non serve più mostrare la miniatura */
+dom.lbPlaceholder.addEventListener('load', () => {
+  if (!dom.lb.classList.contains('ready')) dom.lb.classList.add('lqip');
+});
 dom.lbImg.addEventListener('error', () => {
   const photo = state.photos[state.index];
   /* Se l'anteprima grande non arriva, mostra l'originale */

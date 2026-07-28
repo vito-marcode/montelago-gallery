@@ -66,6 +66,31 @@ quindi ogni foto viene ridimensionata una sola volta.
 Nel lightbox viene mostrata una versione a 1600 px (~75 KB) e il pulsante
 **Scarica** punta sempre al file originale nel bucket.
 
+### Preparazione anticipata
+
+La prima richiesta di un'anteprima è la più lenta, perché il proxy deve scaricarsi
+l'originale dal bucket e ridimensionarlo; dalla seconda in poi risponde dalla
+cache. Il sito quindi la fa generare in anticipo, con una richiesta
+`fetch(…, {mode: 'no-cors', priority: 'low'})` di cui non usa la risposta:
+
+- al passaggio del puntatore su un riquadro (dopo 150 ms, per non scaldare tutto
+  ciò che si sfiora), alla pressione del tasto e quando il riquadro riceve il
+  focus da tastiera;
+- all'apertura di una foto, per le 3 successive e le 3 precedenti (le due
+  immediatamente adiacenti vengono anche decodificate, così le frecce sono
+  istantanee).
+
+Ogni anteprima viene preparata una volta sola per sessione.
+
+### Fallback progressivo
+
+Aprendo una foto la cui anteprima grande non è ancora pronta, viene mostrata
+subito la miniatura della griglia ingrandita — già scaricata, quindi immediata —
+sostituita in dissolvenza da quella a piena grandezza appena arriva. Le due
+immagini occupano la stessa cella del grid e hanno le stesse proporzioni, quindi
+lo scambio non sposta nulla. Lo spinner compare solo se non è disponibile
+nemmeno la miniatura.
+
 Disattivando l'opzione nessuna richiesta passa da terze parti e le immagini
 arrivano direttamente dal bucket a piena risoluzione. La scelta viene
 ricordata nel browser. Se il proxy non risponde, il sito ricade
