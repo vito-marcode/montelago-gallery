@@ -56,6 +56,9 @@ const state = {
   thumbW: 480,
   index: -1,
   pushedHistory: false,
+  /* Identifica la foto in corso di visualizzazione: se si cambia foto prima
+     che la precedente sia decodificata, il risultato tardivo va ignorato */
+  renderToken: 0,
 };
 
 /* ---------------------------------------------------------------- utility */
@@ -282,6 +285,7 @@ function showCurrent() {
   const photo = state.photos[state.index];
   if (!photo) return;
 
+  state.renderToken += 1;
   dom.lb.classList.remove('ready', 'lqip');
   dom.lbImg.removeAttribute('src');
   dom.lbPlaceholder.removeAttribute('src');
@@ -498,9 +502,24 @@ dom.changePanel.addEventListener('submit', (e) => {
   if (value) location.search = '?bucket-url=' + encodeURIComponent(value);
 });
 
-dom.lbImg.addEventListener('load', () => dom.lb.classList.add('ready'));
+/* Si attende la decodifica prima di svelarla: al primo fotogramma della
+   dissolvenza l'immagine è già pronta da disegnare, quindi non ci sono scatti */
+dom.lbImg.addEventListener('load', () => {
+  const token = state.renderToken;
+  const reveal = () => {
+    if (token === state.renderToken) dom.lb.classList.add('ready');
+  };
+  if (dom.lbImg.decode) dom.lbImg.decode().then(reveal, reveal);
+  else reveal();
+});
 
-/* Se l'anteprima grande è già arrivata non serve più mostrare la miniatura */
+/* A dissolvenza conclusa la miniatura sotto non serve più */
+dom.lbImg.addEventListener('transitionend', (e) => {
+  if (e.propertyName === 'opacity' && dom.lb.classList.contains('ready')) {
+    dom.lb.classList.remove('lqip');
+  }
+});
+
 dom.lbPlaceholder.addEventListener('load', () => {
   if (!dom.lb.classList.contains('ready')) dom.lb.classList.add('lqip');
 });

@@ -370,21 +370,25 @@ main { padding: clamp(12px, 3vw, 28px); max-width: var(--maxw); margin: 0 auto; 
   grid-area: 1 / 1;
   display: block;
   opacity: 0;
-  transition: opacity .2s ease;
 }
 
 /* Riquadro pari alla foto visibile: così i clic accanto raggiungono lo sfondo
-   e chiudono, mentre quelli sulla foto no */
+   e chiudono, mentre quelli sulla foto no.
+   È l'unica delle due a dissolvere, ed entra sopra una miniatura che resta
+   opaca: se sfumassero entrambe insieme si vedrebbe attraverso, e la
+   sovrapposizione attraverserebbe una fase più scura (il "lampeggio"). */
 #lb-img {
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
+  transition: opacity .3s ease;
 }
 
 /* La miniatura è più piccola della foto: va ingrandita fino allo stesso
    riquadro, altrimenti lo scambio la farebbe "saltare". Il limite di
    larghezza replica quello naturale dell'anteprima grande, che non viene
    mai ingrandita oltre la propria risoluzione. */
+/* Senza transizione: essendo già scaricata deve comparire subito, non sfumare */
 #lb-placeholder {
   width: 100%;
   height: 100%;
@@ -395,8 +399,9 @@ main { padding: clamp(12px, 3vw, 28px); max-width: var(--maxw); margin: 0 auto; 
 
 .lightbox.ready #lb-img { opacity: 1; }
 
-/* Miniatura della griglia mostrata ingrandita finché non arriva quella grande */
-.lightbox.lqip:not(.ready) #lb-placeholder { opacity: 1; }
+/* Miniatura della griglia mostrata ingrandita: resta opaca sotto la foto
+   grande e viene rimossa solo a dissolvenza conclusa */
+.lightbox.lqip #lb-placeholder { opacity: 1; }
 .lightbox.lqip .lb-spinner,
 .lightbox.ready .lb-spinner { display: none; }
 
