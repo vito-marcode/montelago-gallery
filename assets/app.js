@@ -519,7 +519,7 @@ async function fetchAll(photos, signal, onProgress) {
 
 function archiveName(count) {
   const folder = state.source?.prefix ? state.source.prefix.replace(/\/$/, '').split('/').pop() : 'foto';
-  return `${folder}-${count}-foto.zip`;
+  return `${folder}-${count}.zip`;
 }
 
 async function downloadSelection() {
