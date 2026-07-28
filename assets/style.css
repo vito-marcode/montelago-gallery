@@ -501,6 +501,9 @@ main { padding: clamp(12px, 3vw, 28px); max-width: var(--maxw); margin: 0 auto; 
 
 .share-links a:hover { border-color: var(--accent); }
 
+/* Con un numero dispari di servizi l'ultimo occuperebbe mezza riga */
+.share-links a:last-child:nth-child(odd) { grid-column: 1 / -1; }
+
 .share-panel .btn { text-align: center; }
 
 .lb-stage {
