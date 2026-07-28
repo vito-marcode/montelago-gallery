@@ -222,20 +222,34 @@ select, .btn { cursor: pointer; }
 
   .selbar .lb-spacer { display: none; }
 
+  /* Riordinate per stare in tre righe: maniglia, "N foto · MB" con Annulla
+     a fianco, poi le due azioni affiancate. In ordine di DOM Annulla
+     finirebbe da solo su una quarta riga. */
   #sel-count {
-    flex: 1 0 100%;
+    order: 1;
+    flex: 1;
     font-size: .95rem;
   }
 
-  #sel-all,
-  #sel-download,
   #sel-cancel {
-    flex: 1;
+    order: 2;
+    padding: 7px 12px;
+  }
+
+  #sel-all { order: 3; }
+  #sel-download { order: 4; }
+
+  #sel-all,
+  #sel-download {
+    flex: 1 0 44%;
     justify-content: center;
     padding: 11px 8px;
   }
 
-  .sel-progress { flex-wrap: wrap; }
+  .sel-progress {
+    order: 5;
+    flex-wrap: wrap;
+  }
 }
 
 .sel-hint { color: var(--fg-dim); font-size: .8rem; }
