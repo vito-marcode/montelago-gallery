@@ -56,6 +56,9 @@ const dom = {
   lb: el('lightbox'),
   lbImg: el('lb-img'),
   lbPlaceholder: el('lb-placeholder'),
+  lbHires: el('lb-hires'),
+  lbZoom: el('lb-zoom'),
+  lbImgwrap: el('lb-imgwrap'),
   lbName: el('lb-name'),
   lbCounter: el('lb-counter'),
   lbInfo: el('lb-info'),
@@ -650,6 +653,118 @@ async function shareCurrent() {
   openSharePanel(photo);
 }
 
+/* ------------------------------------------------------------------- zoom */
+
+const ZOOM_MAX = 5;
+const ZOOM_DOPPIO_TOCCO = 2.5;
+/* Oltre questa scala l'anteprima da 1600 px si vedrebbe sfocata */
+const HIRES_TRIGGER = 1.4;
+const HIRES_WIDTH = 3200;
+const DOPPIO_TOCCO_MS = 300;
+/* Spostamento entro il quale un tocco è un tocco e non un trascinamento */
+const TOCCO_FERMO = 20;
+
+const zoom = { scale: 1, x: 0, y: 0 };
+/* Dimensioni della foto a scala 1, per limitare lo spostamento */
+let fotoBase = { w: 0, h: 0 };
+let zoomFrame = 0;
+let hiresChiesta = false;
+/* Dita (o cursore) attualmente premute sulla foto */
+const punti = new Map();
+let pinchPrec = null;
+let trascinaPrec = null;
+
+const ingrandita = () => zoom.scale > 1.001;
+
+/* Le trasformazioni si applicano una volta per fotogramma: più eventi di
+   movimento nello stesso fotogramma non producono lavoro inutile */
+function applicaZoom() {
+  if (zoomFrame) return;
+  zoomFrame = requestAnimationFrame(() => {
+    zoomFrame = 0;
+    dom.lbZoom.style.transform =
+      `translate3d(${zoom.x.toFixed(2)}px, ${zoom.y.toFixed(2)}px, 0) scale(${zoom.scale.toFixed(4)})`;
+    dom.lb.classList.toggle('zoomed', ingrandita());
+  });
+}
+
+function misuraFotoBase() {
+  const box = dom.lbImgwrap.getBoundingClientRect();
+  const nw = dom.lbImg.naturalWidth || 4;
+  const nh = dom.lbImg.naturalHeight || 3;
+  const fattore = Math.min(box.width / nw, box.height / nh);
+  fotoBase = { w: nw * fattore, h: nh * fattore };
+}
+
+/* Impedisce di trascinare la foto fuori dal riquadro; quando è più piccola
+   del riquadro la rimette al centro */
+function limitaSpostamento() {
+  const box = dom.lbImgwrap.getBoundingClientRect();
+  const maxX = Math.max(0, (fotoBase.w * zoom.scale - box.width) / 2);
+  const maxY = Math.max(0, (fotoBase.h * zoom.scale - box.height) / 2);
+  zoom.x = Math.min(maxX, Math.max(-maxX, zoom.x));
+  zoom.y = Math.min(maxY, Math.max(-maxY, zoom.y));
+}
+
+/* Ingrandisce mantenendo fermo il punto sotto le dita (o sotto il cursore).
+   Se p è la posizione sullo schermo rispetto al centro e t lo spostamento
+   attuale, il punto resta fermo con t' = p - k·(p − t), dove k è il rapporto
+   fra la nuova scala e quella vecchia. */
+function zoomVerso(clientX, clientY, fattore) {
+  const box = dom.lbImgwrap.getBoundingClientRect();
+  const px = clientX - (box.left + box.width / 2);
+  const py = clientY - (box.top + box.height / 2);
+
+  const nuova = Math.min(ZOOM_MAX, Math.max(1, zoom.scale * fattore));
+  const k = nuova / zoom.scale;
+  zoom.x = px - k * (px - zoom.x);
+  zoom.y = py - k * (py - zoom.y);
+  zoom.scale = nuova;
+
+  limitaSpostamento();
+  applicaZoom();
+  if (zoom.scale >= HIRES_TRIGGER) caricaHires();
+}
+
+function conAnimazione(azione) {
+  dom.lbZoom.classList.add('animato');
+  azione();
+  setTimeout(() => dom.lbZoom.classList.remove('animato'), 260);
+}
+
+function azzeraZoom() {
+  zoom.scale = 1;
+  zoom.x = 0;
+  zoom.y = 0;
+  hiresChiesta = false;
+  if (zoomFrame) { cancelAnimationFrame(zoomFrame); zoomFrame = 0; }
+  dom.lbZoom.classList.remove('animato');
+  dom.lbZoom.style.transform = 'translate3d(0, 0, 0) scale(1)';
+  dom.lb.classList.remove('zoomed', 'hires');
+  dom.lbHires.removeAttribute('src');
+  punti.clear();
+  pinchPrec = null;
+  trascinaPrec = null;
+}
+
+/* Versione più grande, chiesta solo al primo ingrandimento della foto */
+function caricaHires() {
+  const photo = state.photos[state.index];
+  if (hiresChiesta || !photo) return;
+  hiresChiesta = true;
+
+  const token = state.renderToken;
+  const img = new Image();
+  img.addEventListener('load', () => {
+    /* Se nel frattempo si è cambiata foto, questo risultato non serve più */
+    if (token !== state.renderToken) return;
+    dom.lbHires.src = img.src;
+    dom.lb.classList.add('hires');
+  });
+  img.addEventListener('error', () => { hiresChiesta = false; });
+  img.src = proxied(photo, HIRES_WIDTH);
+}
+
 /* -------------------------------------------------------------- lightbox */
 
 function lightboxOpen() {
@@ -662,6 +777,7 @@ function showCurrent() {
 
   state.renderToken += 1;
   closeSharePanel();
+  azzeraZoom();
   dom.lb.classList.remove('ready', 'lqip');
   dom.lbImg.removeAttribute('src');
   dom.lbPlaceholder.removeAttribute('src');
@@ -941,6 +1057,8 @@ dom.changePanel.addEventListener('submit', (e) => {
    dissolvenza l'immagine è già pronta da disegnare, quindi non ci sono scatti */
 dom.lbImg.addEventListener('load', () => {
   const token = state.renderToken;
+  /* Ora si conoscono le proporzioni: servono a limitare lo spostamento */
+  misuraFotoBase();
   const reveal = () => {
     if (token === state.renderToken) dom.lb.classList.add('ready');
   };
@@ -1018,6 +1136,8 @@ dom.lb.addEventListener('click', (e) => {
     touchDragged = false;
     return;
   }
+  /* Da ingrandita il clic serve allo spostamento, non alla chiusura */
+  if (ingrandita()) return;
   if (e.target === dom.lb || e.target === dom.lbStage || e.target.classList.contains('lb-imgwrap')) {
     closeLightbox();
   }
@@ -1047,24 +1167,119 @@ window.addEventListener('popstate', () => {
   if (lightboxOpen()) closeLightbox({ fromHistory: true });
 });
 
-/* Scorrimento con il dito: su mobile è l'unico modo di cambiare foto,
-   perché le frecce sono nascoste */
-let touchStart = null;
+/* ------------------------------------------------- gesti sulla foto */
+
 let touchDragged = false;
+let ultimoTocco = 0;
 
-dom.lbStage.addEventListener('touchstart', (e) => {
-  touchDragged = false;
-  touchStart = e.touches.length === 1 ? { x: e.touches[0].clientX, y: e.touches[0].clientY } : null;
-}, { passive: true });
+/* Distanza e punto medio fra le prime due dita */
+function misuraPinch() {
+  const [a, b] = [...punti.values()];
+  return {
+    dist: Math.hypot(b.x - a.x, b.y - a.y),
+    cx: (a.x + b.x) / 2,
+    cy: (a.y + b.y) / 2,
+  };
+}
 
-dom.lbStage.addEventListener('touchend', (e) => {
-  if (!touchStart || e.changedTouches.length !== 1) return;
-  const dx = e.changedTouches[0].clientX - touchStart.x;
-  const dy = e.changedTouches[0].clientY - touchStart.y;
-  touchStart = null;
-  if (Math.hypot(dx, dy) > 10) touchDragged = true;
-  if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) step(dx < 0 ? 1 : -1);
-}, { passive: true });
+/* Rotellina del mouse. Il pizzico sul trackpad di macOS arriva come wheel
+   con ctrlKey premuto, con incrementi molto più piccoli. */
+dom.lbStage.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const intensita = e.ctrlKey ? 0.012 : 0.0022;
+  zoomVerso(e.clientX, e.clientY, Math.exp(-e.deltaY * intensita));
+}, { passive: false });
+
+dom.lbStage.addEventListener('pointerdown', (e) => {
+  /* Le frecce gestiscono i propri clic */
+  if (e.target.closest('.lb-nav')) return;
+
+  punti.set(e.pointerId, { x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY });
+  dom.lbStage.setPointerCapture(e.pointerId);
+
+  if (punti.size === 2) {
+    pinchPrec = misuraPinch();
+    trascinaPrec = null;
+  } else if (punti.size === 1) {
+    trascinaPrec = { x: e.clientX, y: e.clientY };
+    if (ingrandita()) dom.lb.classList.add('trascina');
+  }
+});
+
+dom.lbStage.addEventListener('pointermove', (e) => {
+  const punto = punti.get(e.pointerId);
+  if (!punto) return;          // nessun dito premuto: il mouse si sta solo muovendo
+  punto.x = e.clientX;
+  punto.y = e.clientY;
+
+  if (punti.size >= 2) {
+    const ora = misuraPinch();
+    if (pinchPrec && pinchPrec.dist > 0 && ora.dist > 0) {
+      zoomVerso(ora.cx, ora.cy, ora.dist / pinchPrec.dist);
+      /* Segue anche lo spostamento delle due dita, non solo l'allargamento */
+      zoom.x += ora.cx - pinchPrec.cx;
+      zoom.y += ora.cy - pinchPrec.cy;
+      limitaSpostamento();
+      applicaZoom();
+    }
+    pinchPrec = ora;
+  } else if (ingrandita() && trascinaPrec) {
+    zoom.x += e.clientX - trascinaPrec.x;
+    zoom.y += e.clientY - trascinaPrec.y;
+    trascinaPrec = { x: e.clientX, y: e.clientY };
+    limitaSpostamento();
+    applicaZoom();
+  }
+});
+
+function finePunto(e) {
+  const punto = punti.get(e.pointerId);
+  punti.delete(e.pointerId);
+  dom.lb.classList.remove('trascina');
+
+  if (punti.size < 2) pinchPrec = null;
+  trascinaPrec = punti.size === 1 ? { ...[...punti.values()][0] } : null;
+  return punto;
+}
+
+dom.lbStage.addEventListener('pointerup', (e) => {
+  const punto = finePunto(e);
+  if (!punto) return;
+
+  const dx = e.clientX - punto.x0;
+  const dy = e.clientY - punto.y0;
+  const spostamento = Math.hypot(dx, dy);
+  if (spostamento > 10) touchDragged = true;
+
+  /* Doppio tocco (o doppio clic): ingrandisce sul punto toccato, e se già
+     ingrandita torna a schermo pieno */
+  const adesso = performance.now();
+  if (spostamento < TOCCO_FERMO && adesso - ultimoTocco < DOPPIO_TOCCO_MS) {
+    ultimoTocco = 0;
+    touchDragged = true;      // il clic non deve chiudere il lightbox
+    conAnimazione(() => zoomVerso(e.clientX, e.clientY,
+      ingrandita() ? 1 / zoom.scale : ZOOM_DOPPIO_TOCCO));
+    return;
+  }
+  ultimoTocco = spostamento < TOCCO_FERMO ? adesso : 0;
+
+  /* Con la foto a schermo pieno lo scorrimento cambia immagine; ingrandita
+     serve invece a spostarla, quindi non si naviga */
+  if (!ingrandita() && e.pointerType !== 'mouse'
+      && Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) {
+    step(dx < 0 ? 1 : -1);
+  }
+});
+
+dom.lbStage.addEventListener('pointercancel', finePunto);
+
+/* Cambiando dimensione della finestra il riquadro cambia: va rimisurato */
+window.addEventListener('resize', () => {
+  if (!lightboxOpen()) return;
+  misuraFotoBase();
+  limitaSpostamento();
+  applicaZoom();
+});
 
 /* ---------------------------------------------------------------- avvio */
 

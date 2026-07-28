@@ -583,6 +583,9 @@ main { padding: clamp(12px, 3vw, 28px); max-width: var(--maxw); margin: 0 auto; 
   align-items: center;
   min-height: 0;
   position: relative;
+  /* I gesti li gestisce il sito: senza questo il browser intercetta il
+     pizzico e lo scorrimento e non arrivano gli eventi */
+  touch-action: none;
 }
 
 .lb-imgwrap {
@@ -597,10 +600,41 @@ main { padding: clamp(12px, 3vw, 28px); max-width: var(--maxw); margin: 0 auto; 
   place-items: center;
   position: relative;
   padding: 8px;
+  /* Ingrandita, la foto non deve sbordare sulla barra e sulla didascalia */
+  overflow: hidden;
 }
 
-/* Le due immagini occupano la stessa cella dello stesso grid */
-.lb-imgwrap > img {
+/* Blocco trasformato dal gesto di zoom. La trasformazione non tocca il
+   layout, quindi ingrandire e spostare non ricalcola nulla. */
+.lb-zoom {
+  grid-area: 1 / 1;
+  width: 100%;
+  height: 100%;
+  display: grid;
+  grid-template: 100% / 100%;
+  place-items: center;
+  transform-origin: center center;
+  /* Tiene la foto su un livello di composizione proprio: il gesto resta fluido */
+  will-change: transform;
+}
+
+/* Solo per il doppio tocco e il ritorno a scala 1: durante il gesto la
+   trasformazione segue le dita senza interpolazione */
+.lb-zoom.animato { transition: transform .22s cubic-bezier(.2, .7, .3, 1); }
+
+@media (prefers-reduced-motion: reduce) {
+  .lb-zoom.animato { transition-duration: 0s; }
+}
+
+.lightbox.zoomed .lb-zoom { cursor: grab; }
+.lightbox.zoomed.trascina .lb-zoom { cursor: grabbing; }
+
+/* Da ingrandita le frecce darebbero fastidio allo spostamento */
+.lightbox.zoomed .lb-nav { pointer-events: none; }
+.lightbox.zoomed .lb-nav > span { opacity: 0; }
+
+/* Le tre immagini occupano la stessa cella dello stesso grid */
+.lb-zoom > img {
   grid-area: 1 / 1;
   display: block;
   opacity: 0;
@@ -632,6 +666,18 @@ main { padding: clamp(12px, 3vw, 28px); max-width: var(--maxw); margin: 0 auto; 
 }
 
 .lightbox.ready #lb-img { opacity: 1; }
+
+/* Versione ad alta risoluzione, chiesta solo quando si ingrandisce: entra
+   sopra le altre due, che restano opache sotto */
+#lb-hires {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+  transition: opacity .2s ease;
+}
+
+.lightbox.hires #lb-hires { opacity: 1; }
 
 /* Miniatura della griglia mostrata ingrandita: resta opaca sotto la foto
    grande e viene rimossa solo a dissolvenza conclusa */

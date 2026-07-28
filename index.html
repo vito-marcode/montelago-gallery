@@ -133,10 +133,14 @@
     <button type="button" class="lb-nav lb-prev" id="lb-prev" aria-label="Foto precedente">
       <span><svg class="chevron" aria-hidden="true"><use href="#i-chevron"/></svg></span>
     </button>
-    <div class="lb-imgwrap">
+    <div class="lb-imgwrap" id="lb-imgwrap">
       <span class="spinner lb-spinner" id="lb-spinner" aria-hidden="true"></span>
-      <img id="lb-placeholder" alt="" aria-hidden="true">
-      <img id="lb-img" alt="">
+      <!-- Solo questo blocco viene ingrandito e spostato: lo spinner resta fermo -->
+      <div class="lb-zoom" id="lb-zoom">
+        <img id="lb-placeholder" alt="" aria-hidden="true">
+        <img id="lb-img" alt="">
+        <img id="lb-hires" alt="" aria-hidden="true">
+      </div>
     </div>
     <button type="button" class="lb-nav lb-next" id="lb-next" aria-label="Foto successiva">
       <span><svg class="chevron" aria-hidden="true"><use href="#i-chevron"/></svg></span>

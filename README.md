@@ -120,6 +120,38 @@ costruisce, quindi selezioni molto grandi consumano RAM in proporzione.
 Per lo stesso motivo il pulsante **Scarica** del lightbox passa dal blob: prima
 apriva la foto invece di salvarla.
 
+## Zoom
+
+Nel lightbox la foto si ingrandisce con il pizzico a due dita, con la rotellina
+del mouse (o il pizzico sul trackpad, che macOS invia come `wheel` con `ctrlKey`)
+e con un doppio tocco / doppio clic. Da ingrandita si sposta trascinando; il
+doppio tocco riporta a schermo pieno.
+
+Come è fatto, perché resti fluido:
+
+- un solo elemento (`.lb-zoom`, che contiene le tre immagini sovrapposte) riceve
+  `transform: translate3d(...) scale(...)`. Non tocca il layout, e `translate3d`
+  con `will-change` lo tiene su un livello di composizione proprio;
+- gli aggiornamenti sono raggruppati in `requestAnimationFrame`: più eventi di
+  movimento nello stesso fotogramma non producono lavoro ripetuto;
+- durante il gesto **nessuna transizione CSS**, così la foto segue le dita senza
+  ritardo; l'interpolazione si attiva solo per il doppio tocco;
+- i gesti usano i Pointer Events (un'unica logica per dito, penna e mouse) e
+  `touch-action: none` sull'area, senza cui il browser intercetterebbe il pizzico;
+- lo zoom è ancorato al punto sotto le dita: se `p` è la posizione rispetto al
+  centro e `t` lo spostamento attuale, il punto resta fermo con
+  `t' = p − k·(p − t)`, dove `k` è il rapporto tra la nuova scala e la vecchia.
+
+La scala è limitata a 5×, e lo spostamento è vincolato ai bordi della foto: quando
+è più piccola del riquadro torna al centro.
+
+### Nitidezza
+
+Ingrandire l'anteprima da 1600 px la mostrerebbe sfocata. Oltre 1,4× viene quindi
+chiesta una versione da 3200 px (≈220 KB, contro i 6,6 MB dell'originale a
+4592×3448) che entra in dissolvenza sopra le altre, che restano opache sotto.
+Viene chiesta una volta sola per foto e solo se si ingrandisce davvero.
+
 ## Condivisione
 
 Nel lightbox il pulsante **Condividi** propone il link alla galleria aperta su
