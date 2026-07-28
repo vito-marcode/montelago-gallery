@@ -14,8 +14,7 @@ https://<utente>.github.io/<repo>/?bucket-url=https://s3.example.com/mio-bucket/
 
 Senza parametro il sito chiede l'indirizzo della cartella da mostrare. È possibile
 impostarne uno predefinito nella costante `DEFAULT_BUCKET_URL` in `assets/app.js`.
-A galleria aperta, il pulsante **Cambia cartella** permette di passare a un altro
-indirizzo.
+A galleria aperta si cambia cartella solo modificando l'indirizzo.
 
 Sono accettati entrambi gli stili di indirizzo S3:
 
@@ -51,13 +50,13 @@ Sono accettati entrambi gli stili di indirizzo S3:
 Se manca uno dei tre requisiti la galleria mostra un messaggio d'errore che
 spiega quale.
 
-## Anteprime leggere
+## Anteprime
 
 Le foto originali possono pesare diversi MB l'una: caricare la griglia a piena
-risoluzione consumerebbe centinaia di MB. Per questo l'opzione **Anteprime
-leggere** (attiva per impostazione predefinita) genera le miniature tramite il
-servizio pubblico gratuito [wsrv.nl](https://wsrv.nl): una foto da 6 MB scende
-tipicamente sotto i 15 KB in WebP.
+risoluzione consumerebbe centinaia di MB. Le miniature sono quindi **sempre**
+generate dal servizio pubblico gratuito [wsrv.nl](https://wsrv.nl) — non è una
+scelta esposta all'utente: una foto da 6 MB scende tipicamente sotto i 15 KB
+in WebP.
 
 Le anteprime non vengono salvate né nel bucket né nel sito: wsrv.nl le produce al
 momento e le serve dalla propria cache (`cache-control: public, max-age=31536000`),
@@ -81,14 +80,12 @@ immagini occupano la stessa cella del grid e hanno le stesse proporzioni, quindi
 lo scambio non sposta nulla. Lo spinner compare solo se non è disponibile
 nemmeno la miniatura.
 
-Disattivando l'opzione nessuna richiesta passa da terze parti e le immagini
-arrivano direttamente dal bucket a piena risoluzione. La scelta viene
-ricordata nel browser. Se il proxy non risponde, il sito ricade
-automaticamente sull'immagine originale.
+Se il proxy non risponde, il sito ricade automaticamente sull'immagine originale
+del bucket, quindi la galleria resta utilizzabile.
 
-> Nota: gli URL delle foto vengono inviati a wsrv.nl quando l'opzione è attiva.
-> Non è un problema per un bucket già pubblico; per contenuti riservati va
-> disattivata (o cambiata la costante `PROXY_BASE`).
+> Nota: gli URL delle foto vengono inviati a wsrv.nl. Non è un problema per un
+> bucket già pubblico; per contenuti riservati va cambiata la costante
+> `PROXY_BASE` in `assets/app.js` (o servite anteprime proprie).
 
 ## Selezione e download in massa
 
@@ -123,9 +120,22 @@ costruisce, quindi selezioni molto grandi consumano RAM in proporzione.
 Per lo stesso motivo il pulsante **Scarica** del lightbox passa dal blob: prima
 apriva la foto invece di salvarla.
 
+## Condivisione
+
+Nel lightbox il pulsante **Condividi** propone il link alla galleria aperta su
+quella foto (`…?bucket-url=…#<chiave>`), che chi lo riceve vede nel contesto della
+galleria.
+
+Dove esiste `navigator.share` (mobile, Safari) si apre il pannello di condivisione
+di sistema, che raggiunge tutte le app installate. Altrove compare un elenco con
+WhatsApp, Telegram, Facebook, X, Email e **Copia link**: sono normali link aperti
+in una scheda nuova, quindi la pubblicazione la conferma sempre l'utente
+nell'interfaccia del servizio — il sito non pubblica nulla da sé.
+
 ## Funzioni della galleria
 
-- ordinamento per nome, data o dimensione;
+- ordinamento per data, nome o dimensione — per impostazione predefinita dalle
+  più vecchie alle più recenti;
 - lightbox con frecce, `←` `→` `Home` `End` `Esc` e swipe su mobile;
 - link diretto a una singola foto tramite `#<chiave>`
   (il tasto *indietro* chiude il lightbox);

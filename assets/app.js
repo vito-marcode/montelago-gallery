@@ -29,8 +29,6 @@ const dom = {
   title: el('title'),
   meta: el('meta'),
   sort: el('sort'),
-  optimize: el('optimize'),
-  changeBtn: el('change-btn'),
   changePanel: el('change-panel'),
   bucketInput: el('bucket-input'),
   topbarActions: el('topbar-actions'),
@@ -40,6 +38,7 @@ const dom = {
   selHint: el('sel-hint'),
   selAll: el('sel-all'),
   selDownload: el('sel-download'),
+  selDownloadText: el('sel-download-text'),
   selCancel: el('sel-cancel'),
   selProgress: el('sel-progress'),
   selFill: el('sel-fill'),
@@ -61,6 +60,12 @@ const dom = {
   lbCounter: el('lb-counter'),
   lbInfo: el('lb-info'),
   lbDownload: el('lb-download'),
+  lbDownloadText: el('lb-download-text'),
+  lbShare: el('lb-share'),
+  sharePanel: el('share-panel'),
+  shareLinks: el('share-links'),
+  shareCopy: el('share-copy'),
+  shareClose: el('share-close'),
   lbPrev: el('lb-prev'),
   lbNext: el('lb-next'),
   lbClose: el('lb-close'),
@@ -70,8 +75,7 @@ const dom = {
 const state = {
   source: null,      // { listBase, objectBase, prefix }
   photos: [],
-  sort: 'name-asc',
-  optimize: true,
+  sort: 'date-asc',
   thumbW: 480,
   index: -1,
   pushedHistory: false,
@@ -216,8 +220,10 @@ function proxied(photo, width) {
   return `${PROXY_BASE}${encodeURIComponent(objectUrl(photo))}&w=${width}&output=webp&q=${width > 1000 ? 80 : 74}&n=-1`;
 }
 
-const thumbUrl = (photo) => (state.optimize ? proxied(photo, state.thumbW) : objectUrl(photo));
-const previewUrl = (photo) => (state.optimize ? proxied(photo, PREVIEW_WIDTH) : objectUrl(photo));
+/* Griglia e lightbox usano sempre le anteprime ridimensionate; gli originali
+   servono solo per il download (e come ripiego se il proxy non risponde) */
+const thumbUrl = (photo) => proxied(photo, state.thumbW);
+const previewUrl = (photo) => proxied(photo, PREVIEW_WIDTH);
 
 /* ---------------------------------------------------------------- griglia */
 
@@ -335,7 +341,7 @@ function updateSelectionUi() {
     ? `${chosen.length} ${chosen.length === 1 ? 'foto' : 'foto'} · ${humanBytes(bytes)}`
     : 'Nessuna foto selezionata';
   dom.selDownload.disabled = !chosen.length || state.downloading;
-  dom.selDownload.textContent = chosen.length > 1 ? `Scarica ZIP (${chosen.length})` : 'Scarica';
+  dom.selDownloadText.textContent = chosen.length ? `Scarica (${chosen.length})` : 'Scarica';
   dom.selAll.textContent = chosen.length === state.photos.length ? 'Deseleziona tutte' : 'Seleziona tutte';
 }
 
@@ -571,6 +577,67 @@ async function downloadSelection() {
   }
 }
 
+/* ----------------------------------------------------------- condivisione */
+
+/* Link alla galleria aperta su questa foto: il deep link #chiave la apre
+   direttamente, quindi chi lo riceve vede la foto nel suo contesto */
+function shareUrl(photo) {
+  const url = new URL(location.href);
+  url.hash = encodeURIComponent(photo.key);
+  return url.toString();
+}
+
+const SHARE_TARGETS = [
+  { nome: 'WhatsApp', url: (u, t) => `https://wa.me/?text=${encodeURIComponent(`${t} ${u}`)}` },
+  { nome: 'Telegram', url: (u, t) => `https://t.me/share/url?url=${encodeURIComponent(u)}&text=${encodeURIComponent(t)}` },
+  { nome: 'Facebook', url: (u) => `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(u)}` },
+  { nome: 'X', url: (u, t) => `https://twitter.com/intent/tweet?url=${encodeURIComponent(u)}&text=${encodeURIComponent(t)}` },
+  { nome: 'Email', url: (u, t) => `mailto:?subject=${encodeURIComponent(t)}&body=${encodeURIComponent(u)}` },
+];
+
+function closeSharePanel() {
+  dom.sharePanel.hidden = true;
+  dom.shareCopy.textContent = 'Copia link';
+}
+
+function openSharePanel(photo) {
+  const url = shareUrl(photo);
+  const testo = `Foto ${photo.name}`;
+
+  dom.shareLinks.textContent = '';
+  for (const target of SHARE_TARGETS) {
+    const link = document.createElement('a');
+    link.href = target.url(url, testo);
+    link.textContent = target.nome;
+    /* Si apre in una scheda nuova: la condivisione la conferma l'utente
+       nell'interfaccia del servizio, il sito non pubblica nulla da sé */
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    dom.shareLinks.append(link);
+  }
+
+  dom.sharePanel.hidden = false;
+  dom.shareCopy.focus({ preventScroll: true });
+}
+
+async function shareCurrent() {
+  const photo = state.photos[state.index];
+  if (!photo) return;
+  const url = shareUrl(photo);
+
+  /* Su mobile il pannello di sistema è l'opzione migliore: raggiunge tutte
+     le app installate. Altrove si ricade sull'elenco esplicito. */
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: photo.name, text: `Foto ${photo.name}`, url });
+      return;
+    } catch (e) {
+      if (e.name === 'AbortError') return; // annullata dall'utente
+    }
+  }
+  openSharePanel(photo);
+}
+
 /* -------------------------------------------------------------- lightbox */
 
 function lightboxOpen() {
@@ -582,15 +649,14 @@ function showCurrent() {
   if (!photo) return;
 
   state.renderToken += 1;
+  closeSharePanel();
   dom.lb.classList.remove('ready', 'lqip');
   dom.lbImg.removeAttribute('src');
   dom.lbPlaceholder.removeAttribute('src');
 
   /* La miniatura della griglia è già scaricata: la si mostra ingrandita per
-     non lasciare lo schermo nero mentre arriva l'anteprima a piena grandezza.
-     Senza le anteprime leggere non serve: griglia e lightbox usano lo stesso
-     file originale, quindi è già in cache. */
-  if (state.optimize) dom.lbPlaceholder.src = thumbUrl(photo);
+     non lasciare lo schermo nero mentre arriva l'anteprima a piena grandezza */
+  dom.lbPlaceholder.src = thumbUrl(photo);
 
   dom.lbImg.alt = photo.name;
   dom.lbImg.src = previewUrl(photo);
@@ -601,7 +667,7 @@ function showCurrent() {
   dom.lbDownload.setAttribute('download', photo.name);
 
   const bits = [humanBytes(photo.size), humanDate(photo.modified)].filter(Boolean);
-  if (state.optimize) bits.push('anteprima ridotta — usa “Scarica” per l’originale');
+  bits.push('anteprima ridotta — usa “Scarica” per l’originale');
   dom.lbInfo.textContent = bits.join(' · ');
 
   const single = state.photos.length < 2;
@@ -631,6 +697,7 @@ function openAt(index, { fromHistory = false } = {}) {
 
 function closeLightbox({ fromHistory = false } = {}) {
   if (!lightboxOpen()) return;
+  closeSharePanel();
   dom.lb.hidden = true;
   dom.lbImg.removeAttribute('src');
   document.body.style.overflow = '';
@@ -844,20 +911,11 @@ dom.sort.addEventListener('change', () => {
   }
 });
 
-dom.optimize.addEventListener('change', () => {
-  state.optimize = dom.optimize.checked;
-  try { localStorage.setItem('gallery:optimize', state.optimize ? '1' : '0'); } catch { /* ignora */ }
-  renderGrid();
-  if (lightboxOpen()) showCurrent();
-});
-
+/* Il pannello compare solo all'avvio, quando manca ?bucket-url= */
 function openChangePanel(open) {
   dom.changePanel.hidden = !open;
-  dom.changeBtn.setAttribute('aria-expanded', String(open));
   if (open) dom.bucketInput.focus();
 }
-
-dom.changeBtn.addEventListener('click', () => openChangePanel(dom.changePanel.hidden));
 
 dom.changePanel.addEventListener('submit', (e) => {
   e.preventDefault();
@@ -900,17 +958,31 @@ dom.lbDownload.addEventListener('click', async (e) => {
   if (!photo || dom.lbDownload.dataset.busy) return;
 
   dom.lbDownload.dataset.busy = '1';
-  dom.lbDownload.textContent = 'Attendi…';
+  dom.lbDownloadText.textContent = 'Attendi…';
   try {
     const res = await fetch(objectUrl(photo), { credentials: 'omit' });
     if (!res.ok) throw new Error(String(res.status));
     saveBlob(await res.blob(), photo.name);
-    dom.lbDownload.textContent = 'Scarica';
+    dom.lbDownloadText.textContent = 'Scarica';
   } catch {
-    dom.lbDownload.textContent = 'Non riuscito';
-    setTimeout(() => { dom.lbDownload.textContent = 'Scarica'; }, 2500);
+    dom.lbDownloadText.textContent = 'Non riuscito';
+    setTimeout(() => { dom.lbDownloadText.textContent = 'Scarica'; }, 2500);
   } finally {
     delete dom.lbDownload.dataset.busy;
+  }
+});
+
+dom.lbShare.addEventListener('click', shareCurrent);
+dom.shareClose.addEventListener('click', closeSharePanel);
+
+dom.shareCopy.addEventListener('click', async () => {
+  const photo = state.photos[state.index];
+  if (!photo) return;
+  try {
+    await navigator.clipboard.writeText(shareUrl(photo));
+    dom.shareCopy.textContent = 'Link copiato';
+  } catch {
+    dom.shareCopy.textContent = 'Copia non riuscita';
   }
 });
 
@@ -933,7 +1005,9 @@ document.addEventListener('keydown', (e) => {
     }
     return;
   }
-  if (e.key === 'Escape') { closeLightbox(); }
+  /* Esc chiude prima il pannello di condivisione, poi la foto */
+  if (e.key === 'Escape' && !dom.sharePanel.hidden) { closeSharePanel(); }
+  else if (e.key === 'Escape') { closeLightbox(); }
   else if (e.key === 'ArrowRight') { step(1); }
   else if (e.key === 'ArrowLeft') { step(-1); }
   else if (e.key === 'Home') { openAt(0); }
@@ -976,10 +1050,6 @@ function showWelcome() {
   const params = new URLSearchParams(location.search);
   const raw = (params.get('bucket-url') || params.get('bucket') || DEFAULT_BUCKET_URL).trim();
 
-  try {
-    state.optimize = localStorage.getItem('gallery:optimize') !== '0';
-  } catch { /* localStorage non disponibile */ }
-  dom.optimize.checked = state.optimize;
   dom.sort.value = state.sort;
   /* Il CSS ne ha bisogno per non ingrandire la miniatura oltre il riquadro
      che occuperà l'anteprima grande */
