@@ -30,8 +30,6 @@ const dom = {
   meta: el('meta'),
   changePanel: el('change-panel'),
   bucketInput: el('bucket-input'),
-  topbarActions: el('topbar-actions'),
-  selectBtn: el('select-btn'),
   selbar: el('selbar'),
   selCount: el('sel-count'),
   selHint: el('sel-hint'),
@@ -285,8 +283,7 @@ function renderGrid() {
 
   const frag = document.createDocumentFragment();
   state.photos.forEach((photo, i) => {
-    const tile = document.createElement('button');
-    tile.type = 'button';
+    const tile = document.createElement('div');
     tile.className = 'tile';
     tile.dataset.i = String(i);
     if (state.selection.has(photo.key)) tile.classList.add('selected');
@@ -297,15 +294,23 @@ function renderGrid() {
     img.decoding = 'async';
     tile.append(img);
 
+    /* Due pulsanti veri e distinti: uno copre il riquadro e apre la foto,
+       l'altro è il segno di spunta. Così entrambe le azioni si raggiungono
+       anche da tastiera, senza il pulsante "Seleziona" nell'intestazione. */
+    const apri = document.createElement('button');
+    apri.type = 'button';
+    apri.className = 'tile-open';
+    tile.append(apri);
+
+    const check = document.createElement('button');
+    check.type = 'button';
+    check.className = 'tile-check';
+    tile.append(check);
+
     const label = document.createElement('span');
     label.className = 'tile-label';
     label.textContent = photo.name;
     tile.append(label);
-
-    const check = document.createElement('span');
-    check.className = 'tile-check';
-    check.setAttribute('aria-hidden', 'true');
-    tile.append(check);
 
     syncTileLabel(tile, photo);
     frag.append(tile);
@@ -318,13 +323,22 @@ function renderGrid() {
 
 /* In modalità selezione il riquadro è un interruttore, altrimenti apre la foto */
 function syncTileLabel(tile, photo) {
+  const apri = tile.querySelector('.tile-open');
+  const check = tile.querySelector('.tile-check');
+  if (!apri || !check) return;
+
+  const scelta = state.selection.has(photo.key);
+  const azione = `${scelta ? 'Deseleziona' : 'Seleziona'} ${photo.name}`;
+
+  check.setAttribute('aria-pressed', String(scelta));
+  check.setAttribute('aria-label', azione);
+
   if (state.selecting) {
-    const on = state.selection.has(photo.key);
-    tile.setAttribute('aria-pressed', String(on));
-    tile.setAttribute('aria-label', `${on ? 'Deseleziona' : 'Seleziona'} ${photo.name}`);
+    apri.setAttribute('aria-pressed', String(scelta));
+    apri.setAttribute('aria-label', azione);
   } else {
-    tile.removeAttribute('aria-pressed');
-    tile.setAttribute('aria-label', `Apri ${photo.name}`);
+    apri.removeAttribute('aria-pressed');
+    apri.setAttribute('aria-label', `Apri ${photo.name}`);
   }
 }
 
@@ -340,7 +354,6 @@ function updateSelectionUi() {
 
   dom.selbar.classList.toggle('open', state.selecting);
   dom.grid.classList.toggle('selecting', state.selecting);
-  dom.selectBtn.textContent = state.selecting ? 'Esci dalla selezione' : 'Seleziona';
 
   dom.selCount.textContent = chosen.length
     ? `${chosen.length} ${chosen.length === 1 ? 'foto' : 'foto'} · ${humanBytes(bytes)}`
@@ -834,8 +847,9 @@ function closeLightbox({ fromHistory = false } = {}) {
   dom.lbImg.removeAttribute('src');
   document.body.style.overflow = '';
 
-  const tile = dom.grid.children[state.index];
-  if (tile) tile.focus({ preventScroll: true });
+  /* Il riquadro è un contenitore: il focus torna al pulsante che apre */
+  const apri = dom.grid.children[state.index]?.querySelector('.tile-open');
+  if (apri) apri.focus({ preventScroll: true });
 
   if (!fromHistory && state.pushedHistory) {
     state.pushedHistory = false;
@@ -1005,6 +1019,9 @@ dom.grid.addEventListener('click', (e) => {
   cancelPress();
   if (wasLongPress) return;
 
+  /* Il segno di spunta seleziona sempre, anche fuori dalla modalità selezione */
+  if (e.target.closest('.tile-check')) { enterSelectionWith(index); return; }
+
   if (e.shiftKey && state.selecting && state.anchor >= 0) selectRange(state.anchor, index);
   else if (e.metaKey || e.ctrlKey) enterSelectionWith(index);
   else if (state.selecting) toggleAt(index);
@@ -1016,7 +1033,6 @@ dom.grid.addEventListener('contextmenu', (e) => {
   if (state.selecting || press?.fired) e.preventDefault();
 });
 
-dom.selectBtn.addEventListener('click', () => setSelecting(!state.selecting));
 dom.selCancel.addEventListener('click', () => setSelecting(false));
 
 dom.selAll.addEventListener('click', () => {
@@ -1290,7 +1306,6 @@ function showWelcome() {
   dom.error.hidden = true;
   dom.welcome.hidden = false;
   dom.meta.textContent = '';
-  dom.topbarActions.hidden = true;
   openChangePanel(true);
 }
 
