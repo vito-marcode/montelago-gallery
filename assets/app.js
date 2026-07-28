@@ -3,8 +3,9 @@
    l'API ListObjectsV2 e le immagini sono servite direttamente dal bucket. */
 'use strict';
 
-/* La cartella mostrata quando l'indirizzo non contiene ?bucket-url= */
-const DEFAULT_BUCKET_URL = 'https://s3.cubbit.eu/montelago/foto/';
+/* Cartella aperta quando l'indirizzo non contiene ?bucket-url=.
+   Se resta vuota, il sito chiede l'indirizzo all'avvio. */
+const DEFAULT_BUCKET_URL = '';
 
 const IMAGE_EXT = /\.(jpe?g|png|gif|webp|avif|bmp|tiff?|heic|heif)$/i;
 const PROXY_BASE = 'https://wsrv.nl/?url=';
@@ -24,6 +25,8 @@ const dom = {
   changeBtn: el('change-btn'),
   changePanel: el('change-panel'),
   bucketInput: el('bucket-input'),
+  topbarActions: el('topbar-actions'),
+  welcome: el('welcome'),
   status: el('status'),
   statusText: el('status-text'),
   error: el('error'),
@@ -478,12 +481,13 @@ dom.optimize.addEventListener('change', () => {
   if (lightboxOpen()) showCurrent();
 });
 
-dom.changeBtn.addEventListener('click', () => {
-  const open = dom.changePanel.hidden;
+function openChangePanel(open) {
   dom.changePanel.hidden = !open;
   dom.changeBtn.setAttribute('aria-expanded', String(open));
   if (open) dom.bucketInput.focus();
-});
+}
+
+dom.changeBtn.addEventListener('click', () => openChangePanel(dom.changePanel.hidden));
 
 dom.changePanel.addEventListener('submit', (e) => {
   e.preventDefault();
@@ -539,16 +543,27 @@ dom.lbStage.addEventListener('touchend', (e) => {
 
 /* ---------------------------------------------------------------- avvio */
 
+/* Nessuna cartella indicata: si chiede l'indirizzo invece di mostrare un errore */
+function showWelcome() {
+  dom.status.hidden = true;
+  dom.error.hidden = true;
+  dom.welcome.hidden = false;
+  dom.meta.textContent = '';
+  dom.topbarActions.hidden = true;
+  openChangePanel(true);
+}
+
 (function init() {
   const params = new URLSearchParams(location.search);
-  const raw = params.get('bucket-url') || params.get('bucket') || DEFAULT_BUCKET_URL;
+  const raw = (params.get('bucket-url') || params.get('bucket') || DEFAULT_BUCKET_URL).trim();
 
   try {
     state.optimize = localStorage.getItem('gallery:optimize') !== '0';
   } catch { /* localStorage non disponibile */ }
   dom.optimize.checked = state.optimize;
   dom.sort.value = state.sort;
-  dom.bucketInput.value = raw;
+  if (raw) dom.bucketInput.value = raw;
 
-  load(raw);
+  if (raw) load(raw);
+  else showWelcome();
 })();

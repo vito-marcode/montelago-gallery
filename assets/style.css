@@ -175,6 +175,22 @@ main { padding: clamp(12px, 3vw, 28px); max-width: var(--maxw); margin: 0 auto; 
   .spinner { animation-duration: 2s; }
 }
 
+.welcome {
+  max-width: 560px;
+  padding: 28px 4px;
+}
+
+.welcome h2 {
+  margin: 0 0 8px;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.welcome p {
+  margin: 0;
+  color: var(--fg-dim);
+}
+
 .error {
   border: 1px solid #7a3b3b;
   background: color-mix(in srgb, #ff5b5b 10%, var(--bg-elev));

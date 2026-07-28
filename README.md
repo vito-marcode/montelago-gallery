@@ -9,19 +9,20 @@ galleria con lightbox.
 Apri il sito passando la cartella del bucket nel parametro `bucket-url`:
 
 ```
-https://<utente>.github.io/montelago-gallery/?bucket-url=https://s3.cubbit.eu/montelago/foto/
+https://<utente>.github.io/<repo>/?bucket-url=https://s3.example.com/mio-bucket/foto/
 ```
 
-Senza parametro viene usata la cartella predefinita impostata in
-`assets/app.js` (`DEFAULT_BUCKET_URL`). Dall'interfaccia, il pulsante
-**Cambia cartella** permette di inserire un altro indirizzo.
+Senza parametro il sito chiede l'indirizzo della cartella da mostrare. È possibile
+impostarne uno predefinito nella costante `DEFAULT_BUCKET_URL` in `assets/app.js`.
+A galleria aperta, il pulsante **Cambia cartella** permette di passare a un altro
+indirizzo.
 
 Sono accettati entrambi gli stili di indirizzo S3:
 
 | stile | esempio |
 | --- | --- |
-| path-style | `https://s3.cubbit.eu/montelago/foto/` |
-| virtual-hosted | `https://montelago.s3.cubbit.eu/foto/` |
+| path-style | `https://s3.example.com/mio-bucket/foto/` |
+| virtual-hosted | `https://mio-bucket.s3.example.com/foto/` |
 
 ## Come funziona
 
@@ -55,8 +56,12 @@ spiega quale.
 Le foto originali possono pesare diversi MB l'una: caricare la griglia a piena
 risoluzione consumerebbe centinaia di MB. Per questo l'opzione **Anteprime
 leggere** (attiva per impostazione predefinita) genera le miniature tramite il
-servizio pubblico gratuito [wsrv.nl](https://wsrv.nl) — nell'esempio del bucket
-`montelago` una foto passa da ~6,6 MB a ~10 KB in WebP.
+servizio pubblico gratuito [wsrv.nl](https://wsrv.nl): una foto da 6 MB scende
+tipicamente sotto i 15 KB in WebP.
+
+Le anteprime non vengono salvate né nel bucket né nel sito: wsrv.nl le produce al
+momento e le serve dalla propria cache (`cache-control: public, max-age=31536000`),
+quindi ogni foto viene ridimensionata una sola volta.
 
 Nel lightbox viene mostrata una versione a 1600 px (~75 KB) e il pulsante
 **Scarica** punta sempre al file originale nel bucket.

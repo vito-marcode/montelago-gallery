@@ -19,7 +19,7 @@
     <p class="meta" id="meta">Caricamento…</p>
   </div>
 
-  <div class="topbar-actions">
+  <div class="topbar-actions" id="topbar-actions">
     <label class="field">
       <span class="field-label">Ordina</span>
       <select id="sort">
@@ -45,7 +45,7 @@
     <label for="bucket-input">URL della cartella nel bucket S3</label>
     <div class="change-row">
       <input type="url" id="bucket-input" name="bucket-url" required spellcheck="false"
-             placeholder="https://s3.cubbit.eu/montelago/foto/">
+             placeholder="https://s3.example.com/mio-bucket/foto/">
       <button type="submit" class="btn btn-primary">Apri</button>
     </div>
     <p class="hint">Il sito accetta anche il parametro nell'indirizzo: <code>?bucket-url=…</code></p>
@@ -53,6 +53,12 @@
 </header>
 
 <main>
+  <div id="welcome" class="welcome" hidden>
+    <h2>Indica la cartella del bucket S3 da mostrare</h2>
+    <p>Incolla l'indirizzo della cartella che contiene le foto nel campo qui sopra.
+       Il bucket deve consentire la lettura pubblica dei file e il loro elenco.</p>
+  </div>
+
   <div id="status" class="status" role="status" aria-live="polite">
     <span class="spinner" aria-hidden="true"></span>
     <span id="status-text">Lettura dell'elenco dei file…</span>
