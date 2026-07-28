@@ -27,6 +27,9 @@
 
 * { box-sizing: border-box; }
 
+/* L'attributo hidden deve vincere sui display: flex/grid dichiarati qui sotto */
+[hidden] { display: none !important; }
+
 html { -webkit-text-size-adjust: 100%; }
 
 body {
@@ -156,8 +159,6 @@ main { padding: clamp(12px, 3vw, 28px); max-width: var(--maxw); margin: 0 auto; 
   color: var(--fg-dim);
   padding: 32px 4px;
 }
-
-.status[hidden] { display: none; }
 
 .spinner {
   width: 16px;
@@ -307,8 +308,6 @@ main { padding: clamp(12px, 3vw, 28px); max-width: var(--maxw); margin: 0 auto; 
   background: #0a0b0dfa;
   color: #fff;
 }
-
-.lightbox[hidden] { display: none; }
 
 .lb-bar {
   display: flex;
