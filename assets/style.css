@@ -397,11 +397,9 @@ main { padding: clamp(12px, 3vw, 28px); max-width: var(--maxw); margin: 0 auto; 
   transform: rotate(45deg);
 }
 
-.tile.selected img { transform: scale(.93); }
-
-@media (hover: hover) {
-  .tile.selected:hover img { transform: scale(.93); }
-}
+/* Scelta: resta appena ingrandita come al passaggio del mouse. Rimpicciolirla
+   la faceva sembrare allontanarsi, e il bordo colorato basta a distinguerla. */
+.tile.selected img { transform: scale(1.04); }
 
 .tile.selected::after {
   box-shadow: inset 0 0 0 3px var(--accent);
