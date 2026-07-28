@@ -66,21 +66,11 @@ quindi ogni foto viene ridimensionata una sola volta.
 Nel lightbox viene mostrata una versione a 1600 px (~75 KB) e il pulsante
 **Scarica** punta sempre al file originale nel bucket.
 
-### Preparazione anticipata
-
-La prima richiesta di un'anteprima è la più lenta, perché il proxy deve scaricarsi
-l'originale dal bucket e ridimensionarlo; dalla seconda in poi risponde dalla
-cache. Il sito quindi la fa generare in anticipo, con una richiesta
-`fetch(…, {mode: 'no-cors', priority: 'low'})` di cui non usa la risposta:
-
-- al passaggio del puntatore su un riquadro (dopo 150 ms, per non scaldare tutto
-  ciò che si sfiora), alla pressione del tasto e quando il riquadro riceve il
-  focus da tastiera;
-- all'apertura di una foto, per le 3 successive e le 3 precedenti (le due
-  immediatamente adiacenti vengono anche decodificate, così le frecce sono
-  istantanee).
-
-Ogni anteprima viene preparata una volta sola per sessione.
+Le anteprime vengono richieste solo quando servono: nulla viene preparato in
+anticipo, quindi il proxy non lavora per foto che nessuno apre. La prima richiesta
+di ciascuna è la più lenta, perché deve scaricarsi l'originale dal bucket e
+ridimensionarlo; dalla seconda in poi risponde dalla cache. L'attesa è coperta dal
+fallback qui sotto.
 
 ### Fallback progressivo
 
@@ -103,8 +93,7 @@ automaticamente sull'immagine originale.
 ## Funzioni della galleria
 
 - ordinamento per nome, data o dimensione;
-- lightbox con frecce, `←` `→` `Home` `End` `Esc`, swipe su mobile e
-  precaricamento delle foto adiacenti;
+- lightbox con frecce, `←` `→` `Home` `End` `Esc` e swipe su mobile;
 - link diretto a una singola foto tramite `#<chiave>`
   (il tasto *indietro* chiude il lightbox);
 - tema chiaro/scuro automatico, layout responsive.
