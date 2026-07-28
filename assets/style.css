@@ -339,8 +339,12 @@ main { padding: clamp(12px, 3vw, 28px); max-width: var(--maxw); margin: 0 auto; 
 .lb-imgwrap {
   flex: 1;
   min-width: 0;
+  min-height: 0;
   height: 100%;
   display: grid;
+  /* Riga e colonna esplicite: senza di esse il max-height dell'immagine
+     si risolverebbe su un'altezza indefinita e la foto sborderebbe */
+  grid-template: 100% / 100%;
   place-items: center;
   position: relative;
   padding: 8px;
