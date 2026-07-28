@@ -365,16 +365,32 @@ main { padding: clamp(12px, 3vw, 28px); max-width: var(--maxw); margin: 0 auto; 
   padding: 8px;
 }
 
-/* Le due immagini occupano la stessa cella: avendo le stesse proporzioni
-   si sovrappongono esattamente, così lo scambio non sposta nulla */
+/* Le due immagini occupano la stessa cella dello stesso grid */
 .lb-imgwrap > img {
   grid-area: 1 / 1;
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
   display: block;
   opacity: 0;
   transition: opacity .2s ease;
+}
+
+/* Riquadro pari alla foto visibile: così i clic accanto raggiungono lo sfondo
+   e chiudono, mentre quelli sulla foto no */
+#lb-img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+/* La miniatura è più piccola della foto: va ingrandita fino allo stesso
+   riquadro, altrimenti lo scambio la farebbe "saltare". Il limite di
+   larghezza replica quello naturale dell'anteprima grande, che non viene
+   mai ingrandita oltre la propria risoluzione. */
+#lb-placeholder {
+  width: 100%;
+  height: 100%;
+  max-width: var(--preview-width, 1600px);
+  object-fit: contain;
+  pointer-events: none;
 }
 
 .lightbox.ready #lb-img { opacity: 1; }

@@ -625,6 +625,9 @@ function showWelcome() {
   } catch { /* localStorage non disponibile */ }
   dom.optimize.checked = state.optimize;
   dom.sort.value = state.sort;
+  /* Il CSS ne ha bisogno per non ingrandire la miniatura oltre il riquadro
+     che occuperà l'anteprima grande */
+  document.documentElement.style.setProperty('--preview-width', `${PREVIEW_WIDTH}px`);
   if (raw) dom.bucketInput.value = raw;
 
   if (raw) load(raw);
