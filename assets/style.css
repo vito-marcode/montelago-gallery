@@ -632,8 +632,12 @@ main { padding: clamp(12px, 3vw, 28px); max-width: var(--maxw); margin: 0 auto; 
   .lb-zoom.animato { transition-duration: 0s; }
 }
 
-.lightbox.zoomed .lb-zoom { cursor: grab; }
-.lightbox.zoomed.trascina .lb-zoom { cursor: grabbing; }
+/* Il cursore va sull'area che cattura il puntatore, non sulla foto: durante
+   setPointerCapture il browser usa quello dell'elemento che cattura, e da
+   .lb-zoom la mano chiusa non veniva mai mostrata. Il cursore si eredita,
+   quindi vale anche per la foto dentro. */
+.lightbox.zoomed .lb-stage { cursor: grab; }
+.lightbox.zoomed.trascina .lb-stage { cursor: grabbing; }
 
 /* Da ingrandita le frecce darebbero fastidio allo spostamento */
 .lightbox.zoomed .lb-nav { pointer-events: none; }
