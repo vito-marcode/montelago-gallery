@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Galleria foto</title>
+<meta name="description" content="Galleria di foto ospitate su un bucket S3 pubblico.">
+<meta name="color-scheme" content="dark light">
+<meta name="theme-color" content="#111318">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🖼️</text></svg>">
+<link rel="preconnect" href="https://wsrv.nl" crossorigin>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-main">
+    <h1 id="title">Galleria foto</h1>
+    <p class="meta" id="meta">Caricamento…</p>
+  </div>
+
+  <div class="topbar-actions">
+    <label class="field">
+      <span class="field-label">Ordina</span>
+      <select id="sort">
+        <option value="name-asc">Nome (A→Z)</option>
+        <option value="name-desc">Nome (Z→A)</option>
+        <option value="date-desc">Più recenti</option>
+        <option value="date-asc">Più vecchie</option>
+        <option value="size-desc">Più grandi</option>
+      </select>
+    </label>
+
+    <label class="switch" title="Genera anteprime leggere tramite wsrv.nl invece di scaricare le foto a piena risoluzione">
+      <input type="checkbox" id="optimize">
+      <span>Anteprime leggere</span>
+    </label>
+
+    <button type="button" id="change-btn" class="btn" aria-expanded="false" aria-controls="change-panel">
+      Cambia cartella
+    </button>
+  </div>
+
+  <form id="change-panel" class="change-panel" hidden>
+    <label for="bucket-input">URL della cartella nel bucket S3</label>
+    <div class="change-row">
+      <input type="url" id="bucket-input" name="bucket-url" required spellcheck="false"
+             placeholder="https://s3.cubbit.eu/montelago/foto/">
+      <button type="submit" class="btn btn-primary">Apri</button>
+    </div>
+    <p class="hint">Il sito accetta anche il parametro nell'indirizzo: <code>?bucket-url=…</code></p>
+  </form>
+</header>
+
+<main>
+  <div id="status" class="status" role="status" aria-live="polite">
+    <span class="spinner" aria-hidden="true"></span>
+    <span id="status-text">Lettura dell'elenco dei file…</span>
+  </div>
+
+  <div id="error" class="error" hidden>
+    <h2 id="error-title">Impossibile leggere il bucket</h2>
+    <p id="error-text"></p>
+    <ul id="error-hints"></ul>
+  </div>
+
+  <div id="grid" class="grid"></div>
+</main>
+
+<footer class="footer">
+  <p id="footer-source"></p>
+  <p class="hint">Le anteprime leggere passano dal servizio pubblico <a href="https://wsrv.nl" rel="noopener">wsrv.nl</a>. Disattivandole le foto vengono scaricate direttamente dal bucket a piena risoluzione.</p>
+</footer>
+
+<div id="lightbox" class="lightbox" hidden role="dialog" aria-modal="true" aria-label="Foto ingrandita">
+  <div class="lb-bar">
+    <span class="lb-counter" id="lb-counter"></span>
+    <span class="lb-name" id="lb-name"></span>
+    <span class="lb-spacer"></span>
+    <a class="lb-btn" id="lb-download" download title="Scarica l'originale">Scarica</a>
+    <button type="button" class="lb-btn" id="lb-close" aria-label="Chiudi (Esc)">✕</button>
+  </div>
+
+  <div class="lb-stage" id="lb-stage">
+    <button type="button" class="lb-nav lb-prev" id="lb-prev" aria-label="Foto precedente">‹</button>
+    <div class="lb-imgwrap">
+      <span class="spinner lb-spinner" id="lb-spinner" aria-hidden="true"></span>
+      <img id="lb-img" alt="">
+    </div>
+    <button type="button" class="lb-nav lb-next" id="lb-next" aria-label="Foto successiva">›</button>
+  </div>
+
+  <p class="lb-info" id="lb-info"></p>
+</div>
+
+<noscript>
+  <p class="status">Questa galleria richiede JavaScript: l'elenco delle foto viene letto direttamente dal bucket S3 dal browser.</p>
+</noscript>
+
+<script src="assets/app.js"></script>
+</body>
+</html>
