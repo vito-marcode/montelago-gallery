@@ -148,6 +148,51 @@ select, .btn { cursor: pointer; }
 
 .hint { color: var(--fg-dim); font-size: .8rem; margin: 8px 0 0; }
 
+/* ---------- barra della selezione ---------- */
+
+.selbar {
+  flex: 1 0 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+  font-size: .87rem;
+}
+
+.sel-hint { color: var(--fg-dim); font-size: .8rem; }
+
+@media (max-width: 720px) {
+  .sel-hint { display: none; }
+}
+
+.sel-progress {
+  flex: 1 0 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--fg-dim);
+  font-size: .82rem;
+}
+
+.sel-track {
+  flex: 1;
+  height: 5px;
+  min-width: 80px;
+  background: var(--bg-tile);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.sel-fill {
+  height: 100%;
+  width: 0;
+  background: var(--accent);
+  border-radius: inherit;
+  transition: width .2s ease;
+}
+
 /* ---------- status / error ---------- */
 
 main { padding: clamp(12px, 3vw, 28px); max-width: var(--maxw); margin: 0 auto; }
@@ -229,6 +274,58 @@ main { padding: clamp(12px, 3vw, 28px); max-width: var(--maxw); margin: 0 auto; 
   overflow: hidden;
   cursor: zoom-in;
   contain: content;
+  /* Il tocco prolungato deve selezionare, non aprire il menu di sistema
+     o iniziare una selezione di testo */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.grid.selecting .tile { cursor: pointer; }
+
+/* Segno di spunta: cerchio vuoto in modalità selezione, pieno se scelta */
+.tile-check {
+  position: absolute;
+  top: 7px;
+  left: 7px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, .85);
+  background: rgba(0, 0, 0, .35);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .5);
+  display: none;
+  z-index: 1;
+}
+
+.grid.selecting .tile-check { display: block; }
+
+.tile.selected .tile-check {
+  background: var(--accent);
+  border-color: #fff;
+}
+
+/* Il segno di spunta vero e proprio */
+.tile.selected .tile-check::after {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 2px;
+  width: 7px;
+  height: 12px;
+  border: solid #fff;
+  border-width: 0 2.5px 2.5px 0;
+  transform: rotate(45deg);
+}
+
+.tile.selected img { transform: scale(.93); }
+
+@media (hover: hover) {
+  .tile.selected:hover img { transform: scale(.93); }
+}
+
+.tile.selected::after {
+  box-shadow: inset 0 0 0 3px var(--accent);
 }
 
 .tile img {

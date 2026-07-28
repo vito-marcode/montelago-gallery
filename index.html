@@ -36,9 +36,26 @@
       <span>Anteprime leggere</span>
     </label>
 
+    <button type="button" id="select-btn" class="btn">Seleziona</button>
+
     <button type="button" id="change-btn" class="btn" aria-expanded="false" aria-controls="change-panel">
       Cambia cartella
     </button>
+  </div>
+
+  <div id="selbar" class="selbar" hidden>
+    <strong id="sel-count">Nessuna foto selezionata</strong>
+    <span class="sel-hint" id="sel-hint">Tieni premuto su una foto per selezionarla · Maiusc per un intervallo</span>
+    <span class="lb-spacer"></span>
+    <button type="button" class="btn" id="sel-all">Seleziona tutte</button>
+    <button type="button" class="btn btn-primary" id="sel-download" disabled>Scarica</button>
+    <button type="button" class="btn" id="sel-cancel">Annulla</button>
+
+    <div class="sel-progress" id="sel-progress" hidden>
+      <div class="sel-track"><div class="sel-fill" id="sel-fill"></div></div>
+      <span id="sel-progress-text"></span>
+      <button type="button" class="btn" id="sel-abort">Interrompi</button>
+    </div>
   </div>
 
   <form id="change-panel" class="change-panel" hidden>

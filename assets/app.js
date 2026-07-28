@@ -13,6 +13,14 @@ const PROXY_BASE = 'https://wsrv.nl/?url=';
 const THUMB_STEPS = [320, 480, 640, 800, 1024];
 const PREVIEW_WIDTH = 1600;
 const PAGE_SIZE = 1000;
+/* Durata della pressione prolungata che avvia la selezione */
+const LONG_PRESS_MS = 450;
+/* Spostamento oltre il quale la pressione diventa uno scorrimento */
+const PRESS_SLOP = 10;
+/* Quante foto scaricare in parallelo mentre si prepara lo ZIP */
+const FETCH_CONCURRENCY = 3;
+/* Oltre i 4 GB servirebbe il formato ZIP64, che non è implementato */
+const ZIP_MAX_BYTES = 3.5 * 1024 ** 3;
 
 const collator = new Intl.Collator('it', { numeric: true, sensitivity: 'base' });
 
@@ -26,6 +34,17 @@ const dom = {
   changePanel: el('change-panel'),
   bucketInput: el('bucket-input'),
   topbarActions: el('topbar-actions'),
+  selectBtn: el('select-btn'),
+  selbar: el('selbar'),
+  selCount: el('sel-count'),
+  selHint: el('sel-hint'),
+  selAll: el('sel-all'),
+  selDownload: el('sel-download'),
+  selCancel: el('sel-cancel'),
+  selProgress: el('sel-progress'),
+  selFill: el('sel-fill'),
+  selProgressText: el('sel-progress-text'),
+  selAbort: el('sel-abort'),
   welcome: el('welcome'),
   status: el('status'),
   statusText: el('status-text'),
@@ -59,6 +78,11 @@ const state = {
   /* Identifica la foto in corso di visualizzazione: se si cambia foto prima
      che la precedente sia decodificata, il risultato tardivo va ignorato */
   renderToken: 0,
+  /* Chiavi delle foto scelte: sopravvivono al riordino, gli indici no */
+  selection: new Set(),
+  selecting: false,
+  anchor: -1,
+  downloading: false,
 };
 
 /* ---------------------------------------------------------------- utility */
@@ -254,7 +278,7 @@ function renderGrid() {
     tile.type = 'button';
     tile.className = 'tile';
     tile.dataset.i = String(i);
-    tile.setAttribute('aria-label', `Apri ${photo.name}`);
+    if (state.selection.has(photo.key)) tile.classList.add('selected');
 
     const img = document.createElement('img');
     img.alt = photo.name;
@@ -267,12 +291,284 @@ function renderGrid() {
     label.textContent = photo.name;
     tile.append(label);
 
+    const check = document.createElement('span');
+    check.className = 'tile-check';
+    check.setAttribute('aria-hidden', 'true');
+    tile.append(check);
+
+    syncTileLabel(tile, photo);
     frag.append(tile);
   });
   dom.grid.append(frag);
 
   state.thumbW = measureThumbWidth();
   for (const tile of dom.grid.children) observer.observe(tile);
+}
+
+/* In modalità selezione il riquadro è un interruttore, altrimenti apre la foto */
+function syncTileLabel(tile, photo) {
+  if (state.selecting) {
+    const on = state.selection.has(photo.key);
+    tile.setAttribute('aria-pressed', String(on));
+    tile.setAttribute('aria-label', `${on ? 'Deseleziona' : 'Seleziona'} ${photo.name}`);
+  } else {
+    tile.removeAttribute('aria-pressed');
+    tile.setAttribute('aria-label', `Apri ${photo.name}`);
+  }
+}
+
+/* -------------------------------------------------------------- selezione */
+
+function selectedPhotos() {
+  return state.photos.filter((p) => state.selection.has(p.key));
+}
+
+function updateSelectionUi() {
+  const chosen = selectedPhotos();
+  const bytes = chosen.reduce((sum, p) => sum + p.size, 0);
+
+  dom.selbar.hidden = !state.selecting;
+  dom.grid.classList.toggle('selecting', state.selecting);
+  dom.selectBtn.textContent = state.selecting ? 'Esci dalla selezione' : 'Seleziona';
+
+  dom.selCount.textContent = chosen.length
+    ? `${chosen.length} ${chosen.length === 1 ? 'foto' : 'foto'} · ${humanBytes(bytes)}`
+    : 'Nessuna foto selezionata';
+  dom.selDownload.disabled = !chosen.length || state.downloading;
+  dom.selDownload.textContent = chosen.length > 1 ? `Scarica ZIP (${chosen.length})` : 'Scarica';
+  dom.selAll.textContent = chosen.length === state.photos.length ? 'Deseleziona tutte' : 'Seleziona tutte';
+}
+
+function setSelecting(on) {
+  state.selecting = on;
+  if (!on) {
+    state.selection.clear();
+    state.anchor = -1;
+    for (const tile of dom.grid.children) tile.classList.remove('selected');
+  }
+  for (const tile of dom.grid.children) syncTileLabel(tile, state.photos[Number(tile.dataset.i)]);
+  updateSelectionUi();
+}
+
+function setSelected(index, on) {
+  const photo = state.photos[index];
+  if (!photo) return;
+  if (on) state.selection.add(photo.key);
+  else state.selection.delete(photo.key);
+
+  const tile = dom.grid.children[index];
+  if (tile) {
+    tile.classList.toggle('selected', on);
+    syncTileLabel(tile, photo);
+  }
+}
+
+function toggleAt(index) {
+  const photo = state.photos[index];
+  if (!photo) return;
+  setSelected(index, !state.selection.has(photo.key));
+  state.anchor = index;
+  updateSelectionUi();
+}
+
+/* Maiusc+clic: estende la selezione dall'ultima foto toccata */
+function selectRange(from, to) {
+  const [start, end] = from <= to ? [from, to] : [to, from];
+  for (let i = start; i <= end; i += 1) setSelected(i, true);
+  state.anchor = to;
+  updateSelectionUi();
+}
+
+function enterSelectionWith(index) {
+  if (!state.selecting) setSelecting(true);
+  toggleAt(index);
+}
+
+/* ------------------------------------------------------------- ZIP e salvataggio */
+
+const CRC_TABLE = (() => {
+  const table = new Uint32Array(256);
+  for (let i = 0; i < 256; i += 1) {
+    let c = i;
+    for (let k = 0; k < 8; k += 1) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    table[i] = c >>> 0;
+  }
+  return table;
+})();
+
+function crc32(bytes) {
+  let c = 0xffffffff;
+  for (let i = 0; i < bytes.length; i += 1) c = CRC_TABLE[(c ^ bytes[i]) & 0xff] ^ (c >>> 8);
+  return (c ^ 0xffffffff) >>> 0;
+}
+
+/* Data e ora nel formato MS-DOS usato dallo ZIP */
+function dosStamp(date) {
+  const d = Number.isNaN(date?.getTime?.()) ? new Date() : (date || new Date());
+  const year = Math.max(1980, d.getFullYear());
+  return {
+    time: (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1),
+    date: ((year - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate(),
+  };
+}
+
+/* Archivio senza compressione: i JPEG non si comprimono, quindi si evita di
+   dipendere da una libreria esterna e il file esce già pronto. */
+function buildZip(entries) {
+  const encoder = new TextEncoder();
+  const chunks = [];
+  const central = [];
+  let offset = 0;
+
+  for (const entry of entries) {
+    const name = encoder.encode(entry.name);
+    const crc = crc32(entry.data);
+    const size = entry.data.length;
+    const { time, date } = dosStamp(entry.date);
+
+    const local = new DataView(new ArrayBuffer(30));
+    local.setUint32(0, 0x04034b50, true);
+    local.setUint16(4, 20, true);
+    local.setUint16(6, 0x0800, true); // nomi in UTF-8
+    local.setUint16(8, 0, true);      // metodo 0 = store
+    local.setUint16(10, time, true);
+    local.setUint16(12, date, true);
+    local.setUint32(14, crc, true);
+    local.setUint32(18, size, true);
+    local.setUint32(22, size, true);
+    local.setUint16(26, name.length, true);
+    chunks.push(new Uint8Array(local.buffer), name, entry.data);
+
+    const dir = new DataView(new ArrayBuffer(46));
+    dir.setUint32(0, 0x02014b50, true);
+    dir.setUint16(4, 20, true);
+    dir.setUint16(6, 20, true);
+    dir.setUint16(8, 0x0800, true);
+    dir.setUint16(10, 0, true);
+    dir.setUint16(12, time, true);
+    dir.setUint16(14, date, true);
+    dir.setUint32(16, crc, true);
+    dir.setUint32(20, size, true);
+    dir.setUint32(24, size, true);
+    dir.setUint16(28, name.length, true);
+    dir.setUint32(42, offset, true);
+    central.push(new Uint8Array(dir.buffer), name);
+
+    offset += 30 + name.length + size;
+  }
+
+  const centralSize = central.reduce((sum, part) => sum + part.length, 0);
+  const end = new DataView(new ArrayBuffer(22));
+  end.setUint32(0, 0x06054b50, true);
+  end.setUint16(8, entries.length, true);
+  end.setUint16(10, entries.length, true);
+  end.setUint32(12, centralSize, true);
+  end.setUint32(16, offset, true);
+
+  return new Blob([...chunks, ...central, new Uint8Array(end.buffer)], { type: 'application/zip' });
+}
+
+/* Il salvataggio passa da un blob same-origin: l'attributo download viene
+   ignorato sulle URL di un altro dominio, quindi il nome del file andrebbe
+   perso e la foto si aprirebbe invece di scaricarsi. */
+function saveBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
+let downloadAbort = null;
+
+function showProgress(done, total, bytes, totalBytes) {
+  dom.selProgress.hidden = false;
+  dom.selFill.style.width = `${totalBytes ? (bytes / totalBytes) * 100 : 0}%`;
+  dom.selProgressText.textContent =
+    `${done}/${total} foto · ${humanBytes(bytes)} di ${humanBytes(totalBytes)}`;
+}
+
+/* Scarica in parallelo mantenendo l'ordine della griglia */
+async function fetchAll(photos, signal, onProgress) {
+  const results = new Array(photos.length);
+  let next = 0;
+  let bytes = 0;
+  let done = 0;
+
+  const worker = async () => {
+    while (next < photos.length) {
+      const index = next;
+      next += 1;
+      const photo = photos[index];
+      const res = await fetch(objectUrl(photo), { signal, credentials: 'omit' });
+      if (!res.ok) throw new Error(`${photo.name}: il server ha risposto ${res.status}`);
+      const data = new Uint8Array(await res.arrayBuffer());
+      results[index] = { name: photo.name, data, date: new Date(photo.modified) };
+      bytes += data.length;
+      done += 1;
+      onProgress(done, bytes);
+    }
+  };
+
+  await Promise.all(Array.from({ length: Math.min(FETCH_CONCURRENCY, photos.length) }, worker));
+  return results;
+}
+
+function archiveName(count) {
+  const folder = state.source?.prefix ? state.source.prefix.replace(/\/$/, '').split('/').pop() : 'foto';
+  return `${folder}-${count}-foto.zip`;
+}
+
+async function downloadSelection() {
+  if (state.downloading) return;
+  const photos = selectedPhotos();
+  if (!photos.length) return;
+
+  const totalBytes = photos.reduce((sum, p) => sum + p.size, 0);
+  if (totalBytes > ZIP_MAX_BYTES) {
+    dom.selProgress.hidden = false;
+    dom.selProgressText.textContent =
+      `Selezione troppo grande (${humanBytes(totalBytes)}): il limite è ${humanBytes(ZIP_MAX_BYTES)}. Scegline meno.`;
+    dom.selFill.style.width = '0';
+    dom.selAbort.hidden = true;
+    return;
+  }
+
+  state.downloading = true;
+  downloadAbort = new AbortController();
+  dom.selAbort.hidden = false;
+  updateSelectionUi();
+  showProgress(0, photos.length, 0, totalBytes);
+
+  try {
+    const entries = await fetchAll(photos, downloadAbort.signal, (done, bytes) =>
+      showProgress(done, photos.length, bytes, totalBytes));
+
+    if (entries.length === 1) {
+      saveBlob(new Blob([entries[0].data], { type: 'image/jpeg' }), entries[0].name);
+      dom.selProgressText.textContent = `Scaricata ${entries[0].name}`;
+    } else {
+      dom.selProgressText.textContent = `Preparazione dell'archivio (${humanBytes(totalBytes)})…`;
+      /* Un attimo per lasciar disegnare il messaggio prima del lavoro sincrono */
+      await new Promise((resolve) => setTimeout(resolve, 30));
+      saveBlob(buildZip(entries), archiveName(entries.length));
+      dom.selProgressText.textContent = `Archivio pronto: ${entries.length} foto, ${humanBytes(totalBytes)}`;
+    }
+    dom.selAbort.hidden = true;
+  } catch (e) {
+    dom.selFill.style.width = '0';
+    dom.selAbort.hidden = true;
+    dom.selProgressText.textContent = e.name === 'AbortError'
+      ? 'Download interrotto.'
+      : `Download non riuscito — ${e.message}`;
+  } finally {
+    state.downloading = false;
+    downloadAbort = null;
+    updateSelectionUi();
+  }
 }
 
 /* -------------------------------------------------------------- lightbox */
@@ -452,6 +748,7 @@ function finish() {
   dom.error.hidden = true;
   updateHeader();
   renderGrid();
+  updateSelectionUi();
 
   /* Apertura diretta di una foto condivisa via #chiave */
   const hash = location.hash.slice(1);
@@ -465,16 +762,82 @@ function finish() {
 
 /* ------------------------------------------------------------------ eventi */
 
+/* Pressione prolungata: avvia la selezione senza aprire la foto.
+   Si annulla se il dito scorre, così lo scorrimento della griglia resta libero. */
+let press = null;
+
+function cancelPress() {
+  if (press) clearTimeout(press.timer);
+  press = null;
+}
+
+dom.grid.addEventListener('pointerdown', (e) => {
+  const tile = e.target.closest('.tile');
+  if (!tile || (e.pointerType === 'mouse' && e.button !== 0)) return;
+  cancelPress();
+  press = {
+    index: Number(tile.dataset.i),
+    x: e.clientX,
+    y: e.clientY,
+    fired: false,
+    timer: setTimeout(() => {
+      press.fired = true;
+      enterSelectionWith(press.index);
+    }, LONG_PRESS_MS),
+  };
+});
+
+dom.grid.addEventListener('pointermove', (e) => {
+  if (press && !press.fired && Math.hypot(e.clientX - press.x, e.clientY - press.y) > PRESS_SLOP) {
+    cancelPress();
+  }
+}, { passive: true });
+
+dom.grid.addEventListener('pointercancel', cancelPress);
+window.addEventListener('scroll', cancelPress, { passive: true });
+
 dom.grid.addEventListener('click', (e) => {
   const tile = e.target.closest('.tile');
-  if (tile) openAt(Number(tile.dataset.i));
+  if (!tile) return;
+  const index = Number(tile.dataset.i);
+
+  /* Il clic che segue una pressione prolungata è già stato gestito */
+  const wasLongPress = press?.fired;
+  cancelPress();
+  if (wasLongPress) return;
+
+  if (e.shiftKey && state.selecting && state.anchor >= 0) selectRange(state.anchor, index);
+  else if (e.metaKey || e.ctrlKey) enterSelectionWith(index);
+  else if (state.selecting) toggleAt(index);
+  else openAt(index);
 });
+
+/* In modalità selezione il menu contestuale intralcia il tocco prolungato */
+dom.grid.addEventListener('contextmenu', (e) => {
+  if (state.selecting || press?.fired) e.preventDefault();
+});
+
+dom.selectBtn.addEventListener('click', () => setSelecting(!state.selecting));
+dom.selCancel.addEventListener('click', () => setSelecting(false));
+
+dom.selAll.addEventListener('click', () => {
+  const tutte = state.selection.size === state.photos.length;
+  state.photos.forEach((_, i) => setSelected(i, !tutte));
+  state.anchor = tutte ? -1 : state.photos.length - 1;
+  updateSelectionUi();
+});
+
+dom.selDownload.addEventListener('click', downloadSelection);
+dom.selAbort.addEventListener('click', () => downloadAbort?.abort());
 
 dom.sort.addEventListener('change', () => {
   state.sort = dom.sort.value;
   const current = state.photos[state.index];
   sortPhotos();
   renderGrid();
+  /* Gli indici sono cambiati: l'estremo per Maiusc+clic non vale più */
+  state.anchor = -1;
+  updateSelectionUi();
   if (lightboxOpen() && current) {
     state.index = state.photos.indexOf(current);
     showCurrent();
@@ -529,6 +892,28 @@ dom.lbImg.addEventListener('error', () => {
   if (photo && dom.lbImg.src !== objectUrl(photo)) dom.lbImg.src = objectUrl(photo);
 });
 
+/* Passa dal blob per lo stesso motivo del download in massa: su un'URL di
+   un altro dominio l'attributo download è ignorato e la foto si aprirebbe */
+dom.lbDownload.addEventListener('click', async (e) => {
+  e.preventDefault();
+  const photo = state.photos[state.index];
+  if (!photo || dom.lbDownload.dataset.busy) return;
+
+  dom.lbDownload.dataset.busy = '1';
+  dom.lbDownload.textContent = 'Attendi…';
+  try {
+    const res = await fetch(objectUrl(photo), { credentials: 'omit' });
+    if (!res.ok) throw new Error(String(res.status));
+    saveBlob(await res.blob(), photo.name);
+    dom.lbDownload.textContent = 'Scarica';
+  } catch {
+    dom.lbDownload.textContent = 'Non riuscito';
+    setTimeout(() => { dom.lbDownload.textContent = 'Scarica'; }, 2500);
+  } finally {
+    delete dom.lbDownload.dataset.busy;
+  }
+});
+
 dom.lbClose.addEventListener('click', () => closeLightbox());
 dom.lbPrev.addEventListener('click', () => step(-1));
 dom.lbNext.addEventListener('click', () => step(1));
@@ -540,7 +925,14 @@ dom.lb.addEventListener('click', (e) => {
 });
 
 document.addEventListener('keydown', (e) => {
-  if (!lightboxOpen()) return;
+  if (!lightboxOpen()) {
+    /* Esc esce dalla selezione solo se non c'è una foto aperta davanti */
+    if (e.key === 'Escape' && state.selecting && !state.downloading) {
+      setSelecting(false);
+      e.preventDefault();
+    }
+    return;
+  }
   if (e.key === 'Escape') { closeLightbox(); }
   else if (e.key === 'ArrowRight') { step(1); }
   else if (e.key === 'ArrowLeft') { step(-1); }

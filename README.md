@@ -90,6 +90,39 @@ automaticamente sull'immagine originale.
 > Non è un problema per un bucket già pubblico; per contenuti riservati va
 > disattivata (o cambiata la costante `PROXY_BASE`).
 
+## Selezione e download in massa
+
+Si entra in modalità selezione tenendo premuto su una foto (450 ms) o col pulsante
+**Seleziona**. Poi: tocco singolo per aggiungere e togliere, `Maiusc`+clic per un
+intervallo, `Ctrl`/`Cmd`+clic per selezionare senza entrare prima in modalità,
+**Seleziona tutte**, `Esc` per uscire. La pressione si annulla se il dito scorre di
+più di 10 px, così lo scorrimento della griglia resta libero.
+
+La barra mostra quante foto e quanti MB sono selezionati, con avanzamento e
+**Interrompi** durante il download.
+
+### Perché uno ZIP e non tanti download
+
+L'attributo `download` **viene ignorato sulle URL di un altro dominio**: un link
+diretto al bucket aprirebbe la foto invece di salvarla, perdendo il nome del file.
+In più i browser bloccano o scartano download programmatici ravvicinati.
+
+Poiché il bucket manda `access-control-allow-origin: *`, il sito può invece leggere
+i byte con `fetch()`, costruire l'archivio e salvarlo come `blob:` — che è
+same-origin, quindi `download` funziona e il nome è quello giusto. Le foto vengono
+scaricate 3 alla volta mantenendo l'ordine della griglia.
+
+L'archivio usa il metodo *store* (nessuna compressione: i JPEG non comprimono),
+scritto direttamente in `assets/app.js` — nessuna libreria esterna. Con una sola
+foto selezionata non crea uno ZIP ma salva il file singolo.
+
+Limite: non è implementato ZIP64, quindi la selezione è rifiutata sopra i 3,5 GB
+con un messaggio esplicito. Le foto vengono tenute in memoria mentre l'archivio si
+costruisce, quindi selezioni molto grandi consumano RAM in proporzione.
+
+Per lo stesso motivo il pulsante **Scarica** del lightbox passa dal blob: prima
+apriva la foto invece di salvarla.
+
 ## Funzioni della galleria
 
 - ordinamento per nome, data o dimensione;
