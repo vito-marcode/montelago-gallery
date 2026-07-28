@@ -59,6 +59,8 @@ const dom = {
   lbName: el('lb-name'),
   lbCounter: el('lb-counter'),
   lbInfo: el('lb-info'),
+  lbInfoMain: el('lb-info-main'),
+  lbInfoNote: el('lb-info-note'),
   lbDownload: el('lb-download'),
   lbDownloadText: el('lb-download-text'),
   lbShare: el('lb-share'),
@@ -676,9 +678,11 @@ function showCurrent() {
   dom.lbDownload.href = objectUrl(photo);
   dom.lbDownload.setAttribute('download', photo.name);
 
-  const bits = [humanBytes(photo.size), humanDate(photo.modified)].filter(Boolean);
-  bits.push('anteprima ridotta — usa “Scarica” per l’originale');
-  dom.lbInfo.textContent = bits.join(' · ');
+  /* La nota è in un elemento a parte perché su mobile viene nascosta:
+     sopra la foto occuperebbe due o tre righe */
+  dom.lbInfoMain.textContent = [humanBytes(photo.size), humanDate(photo.modified)]
+    .filter(Boolean).join(' · ');
+  dom.lbInfoNote.textContent = ' · anteprima ridotta — usa “Scarica” per l’originale';
 
   const single = state.photos.length < 2;
   dom.lbPrev.hidden = single;
@@ -1001,6 +1005,12 @@ dom.lbPrev.addEventListener('click', () => step(-1));
 dom.lbNext.addEventListener('click', () => step(1));
 
 dom.lb.addEventListener('click', (e) => {
+  /* Un trascinamento col dito genera comunque un clic: senza questo, uno
+     scorrimento troppo corto per cambiare foto chiuderebbe il lightbox */
+  if (touchDragged) {
+    touchDragged = false;
+    return;
+  }
   if (e.target === dom.lb || e.target === dom.lbStage || e.target.classList.contains('lb-imgwrap')) {
     closeLightbox();
   }
@@ -1030,9 +1040,13 @@ window.addEventListener('popstate', () => {
   if (lightboxOpen()) closeLightbox({ fromHistory: true });
 });
 
-/* Scorrimento con il dito su mobile */
+/* Scorrimento con il dito: su mobile è l'unico modo di cambiare foto,
+   perché le frecce sono nascoste */
 let touchStart = null;
+let touchDragged = false;
+
 dom.lbStage.addEventListener('touchstart', (e) => {
+  touchDragged = false;
   touchStart = e.touches.length === 1 ? { x: e.touches[0].clientX, y: e.touches[0].clientY } : null;
 }, { passive: true });
 
@@ -1041,6 +1055,7 @@ dom.lbStage.addEventListener('touchend', (e) => {
   const dx = e.changedTouches[0].clientX - touchStart.x;
   const dy = e.changedTouches[0].clientY - touchStart.y;
   touchStart = null;
+  if (Math.hypot(dx, dy) > 10) touchDragged = true;
   if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) step(dx < 0 ? 1 : -1);
 }, { passive: true });
 
