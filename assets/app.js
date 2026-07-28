@@ -964,6 +964,13 @@ dom.lbImg.addEventListener('error', () => {
   if (photo && dom.lbImg.src !== objectUrl(photo)) dom.lbImg.src = objectUrl(photo);
 });
 
+/* Su mobile il pulsante mostra solo l'icona: mentre il download è in corso
+   (o è fallito) il testo va reso visibile, altrimenti manca ogni riscontro */
+function setDownloadLabel(testo, mostraSempre) {
+  dom.lbDownloadText.textContent = testo;
+  dom.lbDownload.classList.toggle('label-visible', mostraSempre);
+}
+
 /* Passa dal blob per lo stesso motivo del download in massa: su un'URL di
    un altro dominio l'attributo download è ignorato e la foto si aprirebbe */
 dom.lbDownload.addEventListener('click', async (e) => {
@@ -972,15 +979,15 @@ dom.lbDownload.addEventListener('click', async (e) => {
   if (!photo || dom.lbDownload.dataset.busy) return;
 
   dom.lbDownload.dataset.busy = '1';
-  dom.lbDownloadText.textContent = 'Attendi…';
+  setDownloadLabel('Attendi…', true);
   try {
     const res = await fetch(objectUrl(photo), { credentials: 'omit' });
     if (!res.ok) throw new Error(String(res.status));
     saveBlob(await res.blob(), photo.name);
-    dom.lbDownloadText.textContent = 'Scarica';
+    setDownloadLabel('Scarica', false);
   } catch {
-    dom.lbDownloadText.textContent = 'Non riuscito';
-    setTimeout(() => { dom.lbDownloadText.textContent = 'Scarica'; }, 2500);
+    setDownloadLabel('Non riuscito', true);
+    setTimeout(() => setDownloadLabel('Scarica', false), 2500);
   } finally {
     delete dom.lbDownload.dataset.busy;
   }

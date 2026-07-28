@@ -201,6 +201,43 @@ select, .btn { cursor: pointer; }
   .selbar { transition-duration: 0s; }
 }
 
+/* Su schermi stretti diventa un bottom sheet: angoli superiori arrotondati,
+   maniglia, conteggio su una riga e azioni a larghezza piena sotto */
+@media (max-width: 560px) {
+  .selbar {
+    border-radius: 16px 16px 0 0;
+    padding: 12px 16px calc(14px + env(safe-area-inset-bottom, 0px));
+    gap: 10px;
+  }
+
+  .selbar::before {
+    content: "";
+    flex: 1 0 100%;
+    max-width: 40px;
+    height: 4px;
+    margin: 0 auto 2px;
+    border-radius: 2px;
+    background: var(--border);
+  }
+
+  .selbar .lb-spacer { display: none; }
+
+  #sel-count {
+    flex: 1 0 100%;
+    font-size: .95rem;
+  }
+
+  #sel-all,
+  #sel-download,
+  #sel-cancel {
+    flex: 1;
+    justify-content: center;
+    padding: 11px 8px;
+  }
+
+  .sel-progress { flex-wrap: wrap; }
+}
+
 .sel-hint { color: var(--fg-dim); font-size: .8rem; }
 
 @media (max-width: 720px) {
@@ -658,4 +695,26 @@ main { padding: clamp(12px, 3vw, 28px); max-width: var(--maxw); margin: 0 auto; 
 @media (max-width: 560px) {
   .lb-name { display: none; }
   .lb-info-note { display: none; }
+}
+
+/* Ancora più stretto: solo icone, altrimenti la barra sborda.
+   Il testo resta leggibile dagli screen reader, non è display:none. */
+@media (max-width: 430px) {
+  #lb-share span,
+  #lb-download span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  /* Durante il download il testo torna visibile: è l'unico riscontro */
+  #lb-download.label-visible span {
+    position: static;
+    width: auto;
+    height: auto;
+    clip-path: none;
+  }
 }
