@@ -172,8 +172,9 @@ nell'interfaccia del servizio — il sito non pubblica nulla da sé.
 
 ## Funzioni della galleria
 
-- ordinamento per data, nome o dimensione — per impostazione predefinita dalle
-  più vecchie alle più recenti;
+- foto ordinate dalle più vecchie alle più recenti; l'ordinamento è fisso, non
+  esposto all'utente (si cambia con `state.sort` in `assets/app.js`: accetta
+  `date`, `name` o `size` con suffisso `-asc` o `-desc`);
 - lightbox con frecce, `←` `→` `Home` `End` `Esc` e swipe su mobile;
 - link diretto a una singola foto tramite `#<chiave>`
   (il tasto *indietro* chiude il lightbox);

@@ -28,7 +28,6 @@ const el = (id) => document.getElementById(id);
 const dom = {
   title: el('title'),
   meta: el('meta'),
-  sort: el('sort'),
   changePanel: el('change-panel'),
   bucketInput: el('bucket-input'),
   topbarActions: el('topbar-actions'),
@@ -80,6 +79,7 @@ const dom = {
 const state = {
   source: null,      // { listBase, objectBase, prefix }
   photos: [],
+  /* Ordinamento fisso, non modificabile dall'interfaccia */
   sort: 'date-asc',
   thumbW: 480,
   index: -1,
@@ -1029,20 +1029,6 @@ dom.selAll.addEventListener('click', () => {
 dom.selDownload.addEventListener('click', downloadSelection);
 dom.selAbort.addEventListener('click', () => downloadAbort?.abort());
 
-dom.sort.addEventListener('change', () => {
-  state.sort = dom.sort.value;
-  const current = state.photos[state.index];
-  sortPhotos();
-  renderGrid();
-  /* Gli indici sono cambiati: l'estremo per Maiusc+clic non vale più */
-  state.anchor = -1;
-  updateSelectionUi();
-  if (lightboxOpen() && current) {
-    state.index = state.photos.indexOf(current);
-    showCurrent();
-  }
-});
-
 /* Il pannello compare solo all'avvio, quando manca ?bucket-url= */
 function openChangePanel(open) {
   dom.changePanel.hidden = !open;
@@ -1312,7 +1298,6 @@ function showWelcome() {
   const params = new URLSearchParams(location.search);
   const raw = (params.get('bucket-url') || params.get('bucket') || DEFAULT_BUCKET_URL).trim();
 
-  dom.sort.value = state.sort;
   /* Il CSS ne ha bisogno per non ingrandire la miniatura oltre il riquadro
      che occuperà l'anteprima grande */
   document.documentElement.style.setProperty('--preview-width', `${PREVIEW_WIDTH}px`);
