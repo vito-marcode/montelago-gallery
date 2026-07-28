@@ -659,7 +659,6 @@ const ZOOM_MAX = 5;
 const ZOOM_DOPPIO_TOCCO = 2.5;
 /* Oltre questa scala l'anteprima da 1600 px si vedrebbe sfocata */
 const HIRES_TRIGGER = 1.4;
-const HIRES_WIDTH = 3200;
 const DOPPIO_TOCCO_MS = 300;
 /* Spostamento entro il quale un tocco è un tocco e non un trascinamento */
 const TOCCO_FERMO = 20;
@@ -747,7 +746,9 @@ function azzeraZoom() {
   trascinaPrec = null;
 }
 
-/* Versione più grande, chiesta solo al primo ingrandimento della foto */
+/* Ingrandendo si carica l'originale dal bucket, alla sua piena risoluzione.
+   Si sostituisce in silenzio: entra in dissolvenza sopra l'anteprima, che
+   resta opaca sotto, come già avviene fra miniatura e anteprima. */
 function caricaHires() {
   const photo = state.photos[state.index];
   if (hiresChiesta || !photo) return;
@@ -761,8 +762,9 @@ function caricaHires() {
     dom.lbHires.src = img.src;
     dom.lb.classList.add('hires');
   });
+  /* Se l'originale non arriva resta l'anteprima: si può ritentare */
   img.addEventListener('error', () => { hiresChiesta = false; });
-  img.src = proxied(photo, HIRES_WIDTH);
+  img.src = objectUrl(photo);
 }
 
 /* -------------------------------------------------------------- lightbox */

@@ -148,9 +148,15 @@ La scala è limitata a 5×, e lo spostamento è vincolato ai bordi della foto: q
 ### Nitidezza
 
 Ingrandire l'anteprima da 1600 px la mostrerebbe sfocata. Oltre 1,4× viene quindi
-chiesta una versione da 3200 px (≈220 KB, contro i 6,6 MB dell'originale a
-4592×3448) che entra in dissolvenza sopra le altre, che restano opache sotto.
-Viene chiesta una volta sola per foto e solo se si ingrandisce davvero.
+scaricato **l'originale dal bucket**, alla sua piena risoluzione, e sostituito in
+silenzio: entra in dissolvenza sopra l'anteprima, che resta opaca sotto — lo stesso
+meccanismo usato fra miniatura e anteprima, quindi senza sfarfallii né salti.
+
+Viene chiesto una volta sola per foto e solo se si ingrandisce davvero, così chi
+sfoglia senza zoomare non lo scarica mai. È il file intero (nell'esempio 6,6 MB per
+4592×3448), quindi su rete mobile l'attesa è sensibile: nel frattempo resta
+visibile l'anteprima. Se il download non riesce, l'anteprima resta e il tentativo
+può ripetersi.
 
 ## Condivisione
 
