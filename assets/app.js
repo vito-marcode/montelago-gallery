@@ -1190,9 +1190,17 @@ dom.lbStage.addEventListener('wheel', (e) => {
   zoomVerso(e.clientX, e.clientY, Math.exp(-e.deltaY * intensita));
 }, { passive: false });
 
+/* Il trascinamento nativo dell'immagine va impedito, altrimenti il browser
+   prende il controllo del gesto e lo spostamento della foto si interrompe */
+dom.lbStage.addEventListener('dragstart', (e) => e.preventDefault());
+
 dom.lbStage.addEventListener('pointerdown', (e) => {
   /* Le frecce gestiscono i propri clic */
   if (e.target.closest('.lb-nav')) return;
+
+  /* Toglie di mezzo trascinamento nativo e selezione: sono loro a far
+     arrivare un pointercancel a metà gesto */
+  e.preventDefault();
 
   punti.set(e.pointerId, { x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY });
 
