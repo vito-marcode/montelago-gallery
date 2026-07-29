@@ -55,7 +55,19 @@
      fondo chiaro cancellerebbe quasi tutta la copertina. */
   .hero-photo {
     mix-blend-mode: normal;
-    opacity: .32;
+    opacity: .28;
+  }
+
+  /* Sul chiaro il velo deve coprire di più: l'inchiostro scuro del testo ha
+     bisogno di fondo pieno, mentre sul fondo scuro bastava meno. */
+  .hero-scrim {
+    background:
+      linear-gradient(to right,
+        var(--color-bg) 0%,
+        color-mix(in srgb, var(--color-bg) 88%, transparent) 42%,
+        color-mix(in srgb, var(--color-bg) 45%, transparent) 72%,
+        color-mix(in srgb, var(--color-bg) 12%, transparent) 92%),
+      linear-gradient(to bottom, transparent 50%, var(--color-bg) 100%);
   }
 }
 
@@ -120,6 +132,23 @@ code {
   opacity: .55;
   -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 45%, transparent 100%);
   mask-image: linear-gradient(to bottom, #000 0%, #000 45%, transparent 100%);
+}
+
+/* Il testo sta sopra la foto: senza un velo, su uno scatto luminoso non si
+   stacca dal fondo. La sfumatura è orizzontale, così il fondo resta pieno a
+   sinistra dove sta il testo e la foto respira a destra — che è la direzione
+   asimmetrica chiesta dalla guida. */
+.hero-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(to right,
+      var(--color-bg) 0%,
+      color-mix(in srgb, var(--color-bg) 72%, transparent) 38%,
+      color-mix(in srgb, var(--color-bg) 25%, transparent) 68%,
+      transparent 88%),
+    linear-gradient(to bottom, transparent 55%, var(--color-bg) 100%);
 }
 
 .hero-body { max-width: 62ch; }

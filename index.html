@@ -47,6 +47,10 @@
 <header class="hero" id="hero">
   <!-- Copertina: passa da .lighten, così i valori scuri cadono nel fondo -->
   <div class="hero-photo lighten" id="hero-photo" aria-hidden="true"></div>
+  <!-- Velo fra foto e testo. Elemento a sé e non pseudo-elemento: dovendo
+       stare sopra la copertina ma sotto il testo, e non dovendo subire il
+       mix-blend-mode della foto, va disegnato dopo di essa. -->
+  <div class="hero-scrim" aria-hidden="true"></div>
 
   <div class="hero-body">
     <p class="hero-kicker"><span class="hero-dash" aria-hidden="true"></span>Galleria condivisa</p>
