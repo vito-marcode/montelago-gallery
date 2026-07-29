@@ -1276,8 +1276,11 @@ main {
         var(--velo-fine) 100%);
   }
 
+  /* L'occhiello è testo nudo dentro un <p>, non dentro uno span: col solo
+     selettore della spec restava senza ombra. */
   .hero-body h1,
-  .hero-body span {
+  .hero-body span,
+  .hero-body .hero-kicker {
     text-shadow: 0 1px 10px rgba(19, 21, 35, .55);
   }
 
