@@ -8,6 +8,77 @@
   --muted: color-mix(in srgb, var(--color-text) 55%, transparent);
   --scrim: color-mix(in srgb, var(--color-neutral-900) 78%, transparent);
   --maxw: 1600px;
+
+  /* Alias di ruolo: è il tema a ribaltare questi, non le singole regole.
+     Nocturne porta una sola rampa, ordinata dal chiaro (100) allo scuro
+     (900): su fondo scuro i passi scuri fanno da riempimento, su fondo
+     chiaro serve l'opposto. */
+  --fondo-riquadro: var(--color-neutral-900);
+  --accento-tenue: var(--color-accent-300);
+
+  /* Cromature che stanno sopra una foto, non sul fondo della pagina:
+     restano chiare su scrim scuro in entrambi i temi, altrimenti col tema
+     chiaro spunte e didascalie diventerebbero illeggibili sull'immagine. */
+  --su-foto: var(--color-neutral-100);
+  --su-foto-fondo: var(--color-neutral-900);
+}
+
+/* ---------- tema chiaro ---------- */
+
+/* Nocturne è un'interfaccia scura e il suo foglio non va modificato, così
+   resta ri-sincronizzabile: il tema chiaro ne sovrascrive i token da qui.
+   I valori vengono dalle sue stesse rampe, non inventati. */
+@media (prefers-color-scheme: light) {
+  :root {
+    --color-bg: var(--color-neutral-200);
+    --color-surface: var(--color-neutral-100);
+    --color-text: var(--color-neutral-900);
+    /* Stessa formula del sistema, con l'inchiostro al posto del testo chiaro */
+    --color-divider: color-mix(in srgb, #292b31 16%, transparent);
+
+    /* L'accento del sistema (#9184d9) su fondo chiaro sta a circa 2,3:1,
+       sotto il 3:1 che la guida richiede: serve un passo profondo. */
+    --color-accent: var(--color-accent-700);
+    --accento-tenue: var(--color-accent-700);
+
+    /* Riempimenti: su fondo chiaro servono i passi chiari, non gli scuri */
+    --fondo-riquadro: var(--color-neutral-300);
+
+    /* "Ombre morbide tinte d'inchiostro sul tema chiaro", come dice il
+       commento del sistema accanto ai token di elevazione */
+    --shadow-sm: 0 0 0 1px #cfd3e5;
+    --shadow-md: 0 0 0 1px #cfd3e5, 0 6px 18px rgba(41, 43, 49, .12);
+    --shadow-lg: 0 0 0 1px #b2b6ca, 0 16px 40px rgba(41, 43, 49, .18);
+  }
+
+  /* mix-blend-mode: lighten fa cadere ciò che è più scuro del fondo: su un
+     fondo chiaro cancellerebbe quasi tutta la copertina. */
+  .hero-photo {
+    mix-blend-mode: normal;
+    opacity: .32;
+  }
+}
+
+/* Il visore resta scuro in entrambi i temi: le foto si guardano su fondo
+   neutro scuro, ed è ciò che fanno anche le gallerie di sistema. Qui i token
+   scuri di nocturne.css vengono ridichiarati per il suo sottoalbero. */
+.lightbox {
+  --color-bg: #161826;
+  --color-surface: #232532;
+  --color-text: #e9e9ed;
+  --color-divider: color-mix(in srgb, #e9e9ed 16%, transparent);
+  --color-neutral-100: #f3f5fe;
+  --color-neutral-300: #cfd3e5;
+  --color-neutral-700: #595d6c;
+  --color-neutral-800: #3f424d;
+  --color-neutral-900: #292b31;
+  --color-accent: #9184d9;
+  --color-accent-300: #d2cefd;
+  --shadow-md: 0 0 0 1px #595d6c, 0 6px 18px rgba(0, 0, 0, .55);
+  --shadow-lg: 0 0 0 1px #9397ab, 0 16px 40px rgba(0, 0, 0, .65);
+  --muted: color-mix(in srgb, #e9e9ed 55%, transparent);
+  --scrim: color-mix(in srgb, #292b31 78%, transparent);
+  --fondo-riquadro: #292b31;
 }
 
 /* L'attributo hidden deve vincere sui display: flex/grid dichiarati qui sotto */
@@ -20,7 +91,7 @@ body { -webkit-font-smoothing: antialiased; }
 code {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: .92em;
-  background: var(--color-neutral-900);
+  background: var(--fondo-riquadro);
   padding: .1em .35em;
   border-radius: var(--radius-sm);
 }
@@ -61,7 +132,7 @@ code {
   font-size: 13px;
   letter-spacing: .14em;
   text-transform: uppercase;
-  color: var(--color-accent-300);
+  color: var(--accento-tenue);
 }
 
 /* Marca corta: resta piena, non sfuma come i fili liberi */
@@ -95,13 +166,13 @@ code {
 .hero-meta span + span::before {
   content: "•";
   margin-right: var(--space-6);
-  color: var(--color-neutral-700);
+  color: var(--muted);
 }
 
 /* Avanzamento della lettura delle date: sta nella riga informativa per non
    spostare la griglia mentre appare e scompare */
 .hero-nota {
-  color: var(--color-accent-300);
+  color: var(--accento-tenue);
   font-size: 13px;
 }
 
@@ -329,7 +400,7 @@ code {
   flex: 1;
   height: 5px;
   min-width: 80px;
-  background: var(--color-neutral-900);
+  background: var(--fondo-riquadro);
   border-radius: var(--radius-sm);
   overflow: hidden;
 }
@@ -416,7 +487,7 @@ main {
 .tile {
   position: relative;
   aspect-ratio: 4 / 3;
-  background: var(--color-neutral-900);
+  background: var(--fondo-riquadro);
   border-radius: var(--radius-md);
   overflow: hidden;
   contain: content;
@@ -451,8 +522,8 @@ main {
   height: 26px;
   padding: 0;
   border-radius: 50%;
-  border: 2px solid color-mix(in srgb, var(--color-neutral-100) 85%, transparent);
-  background: color-mix(in srgb, var(--color-neutral-300) 45%, transparent);
+  border: 2px solid color-mix(in srgb, var(--su-foto) 85%, transparent);
+  background: color-mix(in srgb, var(--su-foto-fondo) 45%, transparent);
   box-shadow: var(--shadow-sm);
   cursor: pointer;
   display: none;
@@ -481,8 +552,8 @@ main {
   padding: 0;
   border: 0;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--color-neutral-900) 55%, transparent);
-  color: var(--color-neutral-100);
+  background: color-mix(in srgb, var(--su-foto-fondo) 55%, transparent);
+  color: var(--su-foto);
   cursor: pointer;
   z-index: 2;
 }
@@ -558,8 +629,8 @@ main {
   inset: auto 0 0 0;
   padding: var(--space-6) var(--space-3) var(--space-2);
   font-size: 11px;
-  color: var(--color-text);
-  background: linear-gradient(to top, var(--color-neutral-900), transparent);
+  color: var(--su-foto);
+  background: linear-gradient(to top, var(--su-foto-fondo), transparent);
   text-align: left;
   white-space: nowrap;
   overflow: hidden;
