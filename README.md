@@ -229,15 +229,8 @@ fails, the preview stays and the attempt can be retried.
   (the *back* button closes the lightbox);
 - automatic light/dark theme, responsive layout.
 
-## Publishing on GitHub Pages
+## Languages
 
-The repository requires no build step. In *Settings → Pages* select
-**Deploy from a branch**, branch `main`, folder `/ (root)`.
-
-## Files
-
-```
-index.html         page markup
-assets/style.css   styles
-assets/app.js      bucket reading, grid, lightbox
-```
+The interface is available in English, Italian, Portuguese, Spanish, French,
+German, Chinese and Japanese, switchable from the selector in the footer.
+Strings live in the dictionary in `assets/i18n.js`.
