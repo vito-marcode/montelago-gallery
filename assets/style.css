@@ -496,6 +496,57 @@ main {
 
 .welcome p { color: var(--muted); margin: 0; }
 
+/* ---------- riquadro "come rendere pubblici i file" ---------- */
+
+/* Ripiegato di default: è una spiegazione per chi non ha ancora un bucket
+   pronto, non va letta da chi sa già cosa fare */
+.help-box {
+  margin-top: var(--space-6);
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.help-box summary {
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.help-box[open] summary { margin-bottom: var(--space-4); }
+
+.help-box p,
+.help-box ul {
+  margin: var(--space-3) 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.help-box p:first-of-type { margin-top: 0; }
+
+.help-box li { margin: var(--space-1) 0; }
+
+.help-box strong { color: var(--color-text); }
+
+/* La policy va letta per intero: scorre in orizzontale invece di andare
+   a capo, così l'indentazione JSON resta leggibile anche su mobile */
+.help-box pre {
+  margin: var(--space-3) 0 0;
+  padding: var(--space-3);
+  overflow-x: auto;
+  background: var(--color-neutral-900);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.help-box pre code {
+  padding: 0;
+  background: none;
+}
+
 /* Nocturne è mono e non porta un ruolo per l'errore: il filo rosso è una
    deviazione voluta, perché un guasto deve distinguersi da un'azione. */
 .error {
@@ -722,6 +773,29 @@ main {
 }
 
 .footer p { margin: 0 0 var(--space-2); overflow-wrap: anywhere; }
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Il cambio lingua è un dettaglio del piede, non un'azione della pagina:
+   resta piccolo e senza contendere spazio al resto del footer */
+.lang-switch {
+  margin-top: var(--space-4);
+}
+
+.lang-switch .input {
+  width: auto;
+  min-height: 30px;
+  padding: 4px 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
 
 /* ---------- visore a schermo pieno ---------- */
 

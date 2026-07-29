@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Galleria foto</title>
+<title data-i18n="doc_title">Galleria foto</title>
 <meta name="description" content="Galleria di foto ospitate su un bucket S3 pubblico.">
 <meta name="color-scheme" content="dark light">
 <meta name="theme-color" content="#161826" media="(prefers-color-scheme: dark)">
@@ -53,34 +53,34 @@
 
   <div class="hero-inner">
     <div class="hero-body">
-      <h1 class="hero-title" id="title">Galleria foto</h1>
-      <p class="hero-meta" id="meta">Caricamento…</p>
+      <h1 class="hero-title" id="title" data-i18n="doc_title">Galleria foto</h1>
+      <p class="hero-meta" id="meta" data-i18n="hero_loading">Caricamento…</p>
 
       <div class="hero-actions" id="hero-actions" hidden>
         <button type="button" class="btn btn-primary" id="download-all">
           <svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>
-          <span>Scarica tutto</span>
+          <span data-i18n="btn_download_all">Scarica tutto</span>
         </button>
         <button type="button" class="btn btn-ghost" id="select-btn" aria-pressed="false">
           <svg class="icon" aria-hidden="true"><use href="#i-check-circle"/></svg>
-          <span>Seleziona</span>
+          <span data-i18n="btn_select">Seleziona</span>
         </button>
       </div>
     </div>
 
     <form id="change-panel" class="change-panel field" hidden>
-      <label for="bucket-input">URL della cartella nel bucket S3</label>
+      <label for="bucket-input" data-i18n="bucket_input_label">URL della cartella nel bucket S3</label>
       <div class="change-row">
         <input type="url" class="input" id="bucket-input" name="bucket-url" required spellcheck="false"
-               placeholder="https://s3.example.com/mio-bucket/foto/">
-        <button type="submit" class="btn btn-primary">Apri</button>
+               data-i18n-placeholder="bucket_input_placeholder" placeholder="https://s3.example.com/mio-bucket/foto/">
+        <button type="submit" class="btn btn-primary" data-i18n="bucket_input_button">Apri</button>
       </div>
-      <p class="hint text-muted">Il sito accetta anche il parametro nell'indirizzo: <code>?bucket-url=…</code></p>
+      <p class="hint text-muted" data-i18n-html="bucket_input_hint_html">Il sito accetta anche il parametro nell'indirizzo: <code>?bucket-url=…</code></p>
     </form>
   </div>
 </header>
 
-<nav class="daybar" id="daybar" aria-label="Filtra per giorno" hidden>
+<nav class="daybar" id="daybar" data-i18n-aria-label="daybar_aria" aria-label="Filtra per giorno" hidden>
   <!-- Solo i giorni scorrono, e vengono tagliati qui dentro -->
   <div class="daybar-scroll" id="daybar-scroll"></div>
 
@@ -93,18 +93,76 @@
 
 <main>
   <div id="welcome" class="welcome" hidden>
-    <h2>Indica la cartella del bucket S3 da mostrare</h2>
-    <p>Incolla l'indirizzo della cartella che contiene le foto nel campo qui sopra.
+    <h2 data-i18n="welcome_title">Indica la cartella del bucket S3 da mostrare</h2>
+    <p data-i18n="welcome_body">Incolla l'indirizzo della cartella che contiene le foto nel campo qui sopra.
        Il bucket deve consentire la lettura pubblica dei file e il loro elenco.</p>
+
+    <details class="help-box">
+      <summary data-i18n="help_summary">Come rendere pubblici i file per usarli qui</summary>
+
+      <p data-i18n="help_intro">La galleria legge il bucket direttamente dal browser, senza un server
+         nel mezzo: servono due permessi pubblici e una regola CORS.</p>
+      <ul>
+        <li data-i18n-html="help_li_read_html"><strong>lettura dei file</strong> (<code>s3:GetObject</code>), perché
+          le foto si possano aprire;</li>
+        <li data-i18n-html="help_li_list_html"><strong>elenco dei file</strong> (<code>s3:ListBucket</code>), perché
+          il sito sappia quali foto ci sono;</li>
+        <li data-i18n-html="help_li_cors_html"><strong>CORS</strong> che consenta richieste <code>GET</code>
+          dall'origine del sito (vedi il README del progetto).</li>
+      </ul>
+
+      <p data-i18n-html="help_whole_bucket_html"><strong>Bucket intero pubblico.</strong> Se il pannello del provider
+         offre un interruttore "accesso pubblico in lettura" sul bucket, è la
+         via più semplice: di solito attiva insieme lettura ed elenco su tutti
+         i file.</p>
+
+      <p data-i18n-html="help_folder_only_html"><strong>Solo una cartella, bucket privato per il resto.</strong> Serve
+         una bucket policy che conceda i due permessi solo sul prefisso della
+         cartella, lasciando privato tutto il resto:</p>
+
+      <pre><code>{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "PublicReadFolder",
+      "Effect": "Allow",
+      "Principal": "*",
+      "Action": "s3:GetObject",
+      "Resource": "arn:aws:s3:::my-bucket/photos/*"
+    },
+    {
+      "Sid": "PublicListFolder",
+      "Effect": "Allow",
+      "Principal": "*",
+      "Action": "s3:ListBucket",
+      "Resource": "arn:aws:s3:::my-bucket",
+      "Condition": {
+        "StringLike": { "s3:prefix": ["photos/*"] }
+      }
+    }
+  ]
+}</code></pre>
+
+      <p class="hint text-muted" data-i18n-html="help_hint_replace_html">Sostituisci <code>my-bucket</code> e
+        <code>photos/</code> coi tuoi. Alcuni provider S3-compatibili usano una
+        sintassi diversa per indicare bucket e oggetti nella risorsa: la
+        struttura della policy (principal, azione, risorsa, condizione) resta
+        questa, ma per il formato esatto va controllata la loro
+        documentazione. Va poi aggiunta la regola CORS descritta nel README.</p>
+
+      <p class="hint text-muted" data-i18n="help_hint_warning">Attenzione: chiunque conosca l'indirizzo può
+        vedere ed elencare i file resi pubblici in questo modo. Tieni fuori
+        dalla cartella pubblica ciò che non deve essere condiviso.</p>
+    </details>
   </div>
 
   <div id="status" class="status" role="status" aria-live="polite">
     <span class="spinner" aria-hidden="true"></span>
-    <span id="status-text">Lettura dell'elenco dei file…</span>
+    <span id="status-text" data-i18n="status_loading">Lettura dell'elenco dei file…</span>
   </div>
 
   <div id="error" class="card error" hidden>
-    <h2 class="card-title" id="error-title">Impossibile leggere il bucket</h2>
+    <h2 class="card-title" id="error-title" data-i18n="error_title">Impossibile leggere il bucket</h2>
     <p id="error-text"></p>
     <ul id="error-hints"></ul>
   </div>
@@ -114,48 +172,62 @@
 
 <footer class="footer">
   <p id="footer-source"></p>
-  <p>Le anteprime sono generate dal servizio pubblico <a href="https://wsrv.nl" rel="noopener">wsrv.nl</a>. Il pulsante Scarica usa sempre i file originali del bucket.</p>
+  <p data-i18n-html="footer_previews_html">Le anteprime sono generate dal servizio pubblico <a href="https://wsrv.nl" rel="noopener">wsrv.nl</a>. Il pulsante Scarica usa sempre i file originali del bucket.</p>
+
+  <div class="lang-switch">
+    <label for="lang-select" class="visually-hidden" data-i18n="lang_selector_label">Lingua</label>
+    <select id="lang-select" class="input">
+      <option value="it">Italiano</option>
+      <option value="en">English</option>
+      <option value="pt">Português</option>
+      <option value="es">Español</option>
+      <option value="fr">Français</option>
+      <option value="de">Deutsch</option>
+      <option value="zh">中文</option>
+      <option value="ja">日本語</option>
+    </select>
+  </div>
 </footer>
 
-<div id="selbar" class="selbar" role="region" aria-label="Foto selezionate">
+<div id="selbar" class="selbar" role="region" data-i18n-aria-label="selbar_aria" aria-label="Foto selezionate">
   <div class="selbar-inner">
     <div class="sel-info">
-      <strong id="sel-count">Nessuna foto selezionata</strong>
+      <strong id="sel-count" data-i18n="sel_count_none">Nessuna foto selezionata</strong>
       <span class="sel-status" id="sel-progress-text"></span>
     </div>
 
-    <button type="button" class="btn btn-secondary sel-all" id="sel-all">Seleziona tutte</button>
-    <button type="button" class="btn btn-ghost sel-close" id="sel-cancel" aria-label="Annulla selezione">✕</button>
+    <button type="button" class="btn btn-secondary sel-all" id="sel-all" data-i18n="sel_all_select">Seleziona tutte</button>
+    <button type="button" class="btn btn-ghost sel-close" id="sel-cancel" data-i18n-aria-label="sel_cancel_aria" aria-label="Annulla selezione">✕</button>
 
     <div class="sel-progress" id="sel-progress" hidden>
       <div class="sel-track"><div class="sel-fill" id="sel-fill"></div></div>
-      <button type="button" class="btn btn-secondary" id="sel-abort">Interrompi</button>
+      <button type="button" class="btn btn-secondary" id="sel-abort" data-i18n="sel_abort">Interrompi</button>
     </div>
 
     <button type="button" class="btn btn-primary btn-block" id="sel-download" disabled>
       <svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>
-      <span id="sel-download-text">Scarica</span>
+      <span id="sel-download-text" data-i18n="download_default">Scarica</span>
     </button>
   </div>
 </div>
 
-<div id="lightbox" class="lightbox" hidden role="dialog" aria-modal="true" aria-label="Foto ingrandita">
+<div id="lightbox" class="lightbox" hidden role="dialog" aria-modal="true" data-i18n-aria-label="lb_dialog_aria" aria-label="Foto ingrandita">
   <div class="lb-bar">
     <span class="lb-counter" id="lb-counter"></span>
     <span class="lb-name" id="lb-name"></span>
     <span class="lb-spacer"></span>
-    <button type="button" class="btn lb-act" id="lb-fav" title="Aggiungi ai preferiti">
+    <button type="button" class="btn lb-act" id="lb-fav" data-i18n-title="lb_fav_title_add" title="Aggiungi ai preferiti">
       <svg class="icon" aria-hidden="true"><use href="#i-heart"/></svg>
     </button>
-    <a class="btn lb-pill" id="lb-download" download title="Scarica l'originale">
+    <a class="btn lb-pill" id="lb-download" download data-i18n-title="lb_download_title" title="Scarica l'originale">
       <svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>
-      <span id="lb-download-text">Scarica</span>
+      <span id="lb-download-text" data-i18n="download_default">Scarica</span>
     </a>
-    <button type="button" class="btn lb-act" id="lb-close" aria-label="Chiudi (Esc)">✕</button>
+    <button type="button" class="btn lb-act" id="lb-close" data-i18n-aria-label="lb_close_aria" aria-label="Chiudi (Esc)">✕</button>
   </div>
 
   <div class="lb-stage" id="lb-stage">
-    <button type="button" class="lb-nav lb-prev" id="lb-prev" aria-label="Foto precedente">
+    <button type="button" class="lb-nav lb-prev" id="lb-prev" data-i18n-aria-label="lb_prev_aria" aria-label="Foto precedente">
       <span><svg class="chevron" aria-hidden="true"><use href="#i-chevron"/></svg></span>
     </button>
     <div class="lb-imgwrap" id="lb-imgwrap">
@@ -169,17 +241,17 @@
         <img id="lb-hires" alt="" aria-hidden="true">
       </div>
     </div>
-    <button type="button" class="lb-nav lb-next" id="lb-next" aria-label="Foto successiva">
+    <button type="button" class="lb-nav lb-next" id="lb-next" data-i18n-aria-label="lb_next_aria" aria-label="Foto successiva">
       <span><svg class="chevron" aria-hidden="true"><use href="#i-chevron"/></svg></span>
     </button>
 
     <!-- Compare solo a foto ingrandita -->
     <div class="zoombar" id="zoombar">
-      <button type="button" class="zoom-btn" id="zoom-out" aria-label="Riduci">−</button>
+      <button type="button" class="zoom-btn" id="zoom-out" data-i18n-aria-label="zoom_out_aria" aria-label="Riduci">−</button>
       <input type="range" class="zoom-range" id="zoom-range"
-             min="100" max="500" step="1" value="100" aria-label="Ingrandimento">
+             min="100" max="500" step="1" value="100" data-i18n-aria-label="zoom_range_aria" aria-label="Ingrandimento">
       <span class="zoom-val" id="zoom-val">100%</span>
-      <button type="button" class="zoom-btn" id="zoom-in" aria-label="Ingrandisci">+</button>
+      <button type="button" class="zoom-btn" id="zoom-in" data-i18n-aria-label="zoom_in_aria" aria-label="Ingrandisci">+</button>
     </div>
   </div>
 
@@ -189,13 +261,14 @@
   </p>
 
   <!-- Striscia di anteprime: solo dove c'è spazio, non su mobile -->
-  <div class="filmstrip" id="filmstrip" aria-label="Altre foto"></div>
+  <div class="filmstrip" id="filmstrip" data-i18n-aria-label="filmstrip_aria" aria-label="Altre foto"></div>
 </div>
 
 <noscript>
-  <p class="status">Questa galleria richiede JavaScript: l'elenco delle foto viene letto direttamente dal bucket S3 dal browser.</p>
+  <p class="status" data-i18n="noscript_text">Questa galleria richiede JavaScript: l'elenco delle foto viene letto direttamente dal bucket S3 dal browser.</p>
 </noscript>
 
+<script src="assets/i18n.js"></script>
 <script src="assets/app.js"></script>
 </body>
 </html>

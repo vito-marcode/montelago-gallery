@@ -31,7 +31,9 @@ const EXIF_RANGE_FALLBACK = 64 * 1024;
 const EXIF_CONCURRENCY = 8;
 const EXIF_CACHE = 'gallery:exif:';
 
-const collator = new Intl.Collator('it', { numeric: true, sensitivity: 'base' });
+/* Ricreato a ogni chiamata: dipende dalla lingua attiva, che può cambiare
+   dal selettore nel piede senza un ricaricamento del solo dizionario. */
+const collator = () => new Intl.Collator(localeTag(), { numeric: true, sensitivity: 'base' });
 
 /* Quando la foto è stata scattata. La data del bucket è quella di
    caricamento: se le foto sono state caricate tutte insieme raggruppa male. */
@@ -71,6 +73,7 @@ const dom = {
   errorHints: el('error-hints'),
   grid: el('grid'),
   footerSource: el('footer-source'),
+  langSelect: el('lang-select'),
   lb: el('lightbox'),
   lbImg: el('lb-img'),
   lbPlaceholder: el('lb-placeholder'),
@@ -133,13 +136,15 @@ function humanBytes(n) {
   const units = ['B', 'KB', 'MB', 'GB', 'TB'];
   const i = Math.min(Math.floor(Math.log(n) / Math.log(1024)), units.length - 1);
   const v = n / 1024 ** i;
-  return `${v.toFixed(v < 10 && i > 0 ? 1 : 0).replace('.', ',')} ${units[i]}`;
+  const digits = v < 10 && i > 0 ? 1 : 0;
+  const num = v.toLocaleString(localeTag(), { minimumFractionDigits: digits, maximumFractionDigits: digits });
+  return `${num} ${units[i]}`;
 }
 
 function humanDate(iso) {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
-  return d.toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' });
+  return d.toLocaleDateString(localeTag(), { day: 'numeric', month: 'long', year: 'numeric' });
 }
 
 /* Codifica le sole parti del path, lasciando intatti gli slash */
@@ -297,15 +302,16 @@ function loadTile(tile) {
 function sortPhotos() {
   const [field, dir] = state.sort.split('-');
   const sign = dir === 'desc' ? -1 : 1;
+  const coll = collator();
   state.photos.sort((a, b) => {
     if (field === 'date') {
       const diff = Date.parse(quando(a)) - Date.parse(quando(b));
       /* A parità di istante — tipico quando l'EXIF manca — conta il nome:
          i file numerati seguono l'ordine di scatto */
-      return sign * (diff || collator.compare(a.name, b.name));
+      return sign * (diff || coll.compare(a.name, b.name));
     }
     if (field === 'size') return sign * (a.size - b.size);
-    return sign * collator.compare(a.name, b.name);
+    return sign * coll.compare(a.name, b.name);
   });
 }
 
@@ -337,7 +343,7 @@ function syncLbFav() {
   if (!photo) return;
   const preferita = state.favorites.has(photo.key);
   dom.lbFav.setAttribute('aria-pressed', String(preferita));
-  dom.lbFav.title = preferita ? 'Togli dai preferiti' : 'Aggiungi ai preferiti';
+  dom.lbFav.title = preferita ? t('lb_fav_title_remove') : t('lb_fav_title_add');
   dom.lbFav.classList.toggle('is-on', preferita);
   dom.lbFav.querySelector('use')?.setAttribute('href', preferita ? '#i-heart-fill' : '#i-heart');
 }
@@ -519,8 +525,8 @@ function chiaveGiorno(iso) {
 
 function etichettaGiorno(iso, conGiornoSettimana = true) {
   const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return 'Senza data';
-  const testo = d.toLocaleDateString('it-IT', conGiornoSettimana
+  if (Number.isNaN(d.getTime())) return t('date_none');
+  const testo = d.toLocaleDateString(localeTag(), conGiornoSettimana
     ? { weekday: 'long', day: 'numeric', month: 'long' }
     : { day: 'numeric', month: 'long' });
   return testo.charAt(0).toUpperCase() + testo.slice(1);
@@ -552,7 +558,7 @@ function intervalloDate() {
   if (stessoGiorno) return `${etichettaGiorno(primo.toISOString(), false)} ${anno}`;
 
   if (primo.getMonth() === ultimo.getMonth() && primo.getFullYear() === anno) {
-    const mese = ultimo.toLocaleDateString('it-IT', { month: 'long' });
+    const mese = ultimo.toLocaleDateString(localeTag(), { month: 'long' });
     return `${primo.getDate()}–${ultimo.getDate()} ${mese} ${anno}`;
   }
   return `${etichettaGiorno(primo.toISOString(), false)} – ${etichettaGiorno(ultimo.toISOString(), false)} ${anno}`;
@@ -588,7 +594,7 @@ function renderDaybar() {
   if (!utile) return;
 
   dom.daybarScroll.textContent = '';
-  const voci = [{ chiave: null, etichetta: 'Tutte', count: state.photos.length }, ...state.giorni.map((g) => ({
+  const voci = [{ chiave: null, etichetta: t('day_all'), count: state.photos.length }, ...state.giorni.map((g) => ({
     chiave: g.chiave,
     etichetta: etichettaGiorno(g.iso, false),
     count: g.count,
@@ -616,7 +622,7 @@ function renderDaybar() {
   dom.favFilter.classList.toggle('btn-primary', attivi);
   dom.favFilter.classList.toggle('btn-ghost', !attivi);
   dom.favFilter.setAttribute('aria-pressed', String(attivi));
-  dom.favFilter.setAttribute('aria-label', `Mostra solo i preferiti (${state.favorites.size})`);
+  dom.favFilter.setAttribute('aria-label', t('fav_filter_aria', { count: state.favorites.size }));
   dom.favCount.textContent = String(state.favorites.size);
   dom.favFilter.querySelector('use')
     ?.setAttribute('href', state.favorites.size ? '#i-heart-fill' : '#i-heart');
@@ -654,7 +660,7 @@ function intestazioneGiorno(photo, chiave) {
   const n = state.shown.filter((p) => chiaveGiorno(quando(p)) === chiave).length;
   const conteggio = document.createElement('span');
   conteggio.className = 'day-count';
-  conteggio.textContent = `${n} foto`;
+  conteggio.textContent = tn('photos_count', n);
   testa.append(conteggio);
 
   const filo = document.createElement('span');
@@ -741,7 +747,9 @@ function syncTileLabel(tile, photo) {
   if (!apri || !check) return;
 
   const scelta = state.selection.has(photo.key);
-  const azione = `${scelta ? 'Deseleziona' : 'Seleziona'} ${photo.name}`;
+  const azione = scelta
+    ? t('tile_deselect_aria', { name: photo.name })
+    : t('tile_select_aria', { name: photo.name });
 
   check.setAttribute('aria-pressed', String(scelta));
   check.setAttribute('aria-label', azione);
@@ -750,8 +758,9 @@ function syncTileLabel(tile, photo) {
   if (cuore) {
     const preferita = state.favorites.has(photo.key);
     cuore.setAttribute('aria-pressed', String(preferita));
-    cuore.setAttribute('aria-label',
-      `${preferita ? 'Togli dai preferiti' : 'Aggiungi ai preferiti'}: ${photo.name}`);
+    cuore.setAttribute('aria-label', preferita
+      ? t('tile_fav_remove_aria', { name: photo.name })
+      : t('tile_fav_add_aria', { name: photo.name }));
     cuore.querySelector('use')?.setAttribute('href', preferita ? '#i-heart-fill' : '#i-heart');
   }
 
@@ -760,7 +769,7 @@ function syncTileLabel(tile, photo) {
     apri.setAttribute('aria-label', azione);
   } else {
     apri.removeAttribute('aria-pressed');
-    apri.setAttribute('aria-label', `Apri ${photo.name}`);
+    apri.setAttribute('aria-label', t('tile_open_aria', { name: photo.name }));
   }
 }
 
@@ -778,17 +787,17 @@ function updateSelectionUi() {
   dom.grid.classList.toggle('selecting', state.selecting);
 
   dom.selCount.textContent = chosen.length
-    ? `${chosen.length} ${chosen.length === 1 ? 'foto selezionata' : 'foto selezionate'}`
-    : 'Nessuna foto selezionata';
+    ? tn('sel_count_n', chosen.length)
+    : t('sel_count_none');
   dom.selDownload.disabled = !chosen.length || state.downloading;
-  dom.selDownloadText.textContent = chosen.length ? `Scarica (${chosen.length})` : 'Scarica';
+  dom.selDownloadText.textContent = chosen.length ? t('sel_download_label', { n: chosen.length }) : t('download_default');
   /* Riga di stato: durante il download la riscrive showProgress */
   if (!state.downloading) {
     dom.selProgressText.textContent = chosen.length
       ? humanBytes(bytes)
-      : 'Tocca il segno di spunta su una foto, o tienila premuta';
+      : t('sel_hint_default');
   }
-  dom.selAll.textContent = chosen.length === state.shown.length ? 'Deseleziona tutte' : 'Seleziona tutte';
+  dom.selAll.textContent = chosen.length === state.shown.length ? t('sel_all_deselect') : t('sel_all_select');
   syncSelbarSpace();
 }
 
@@ -814,7 +823,7 @@ function setSelecting(on) {
   dom.selectBtn.classList.toggle('is-on', on);
   dom.selectBtn.setAttribute('aria-pressed', String(on));
   dom.selectBtn.querySelector('use').setAttribute('href', on ? '#i-x' : '#i-check-circle');
-  dom.selectBtn.querySelector('span').textContent = on ? 'Annulla' : 'Seleziona';
+  dom.selectBtn.querySelector('span').textContent = on ? t('select_btn_cancel') : t('btn_select');
   updateSelectionUi();
 }
 
@@ -955,8 +964,9 @@ let downloadAbort = null;
 function showProgress(done, total, bytes, totalBytes) {
   dom.selProgress.hidden = false;
   dom.selFill.style.width = `${totalBytes ? (bytes / totalBytes) * 100 : 0}%`;
-  dom.selProgressText.textContent =
-    `${done}/${total} foto · ${humanBytes(bytes)} di ${humanBytes(totalBytes)}`;
+  dom.selProgressText.textContent = t('progress_line', {
+    done, total, bytesDone: humanBytes(bytes), bytesTotal: humanBytes(totalBytes),
+  });
 }
 
 /* Scarica in parallelo mantenendo l'ordine della griglia */
@@ -972,7 +982,7 @@ async function fetchAll(photos, signal, onProgress) {
       next += 1;
       const photo = photos[index];
       const res = await fetch(objectUrl(photo), { signal, credentials: 'omit' });
-      if (!res.ok) throw new Error(`${photo.name}: il server ha risposto ${res.status}`);
+      if (!res.ok) throw new Error(t('fetch_error', { name: photo.name, status: res.status }));
       const data = new Uint8Array(await res.arrayBuffer());
       results[index] = { name: photo.name, data, date: new Date(quando(photo)) };
       bytes += data.length;
@@ -986,7 +996,7 @@ async function fetchAll(photos, signal, onProgress) {
 }
 
 function archiveName(count) {
-  const folder = state.source?.prefix ? state.source.prefix.replace(/\/$/, '').split('/').pop() : 'foto';
+  const folder = state.source?.prefix ? state.source.prefix.replace(/\/$/, '').split('/').pop() : t('archive_default_name');
   return `${folder}-${count}.zip`;
 }
 
@@ -998,8 +1008,9 @@ async function downloadSelection() {
   const totalBytes = photos.reduce((sum, p) => sum + p.size, 0);
   if (totalBytes > ZIP_MAX_BYTES) {
     dom.selProgress.hidden = false;
-    dom.selProgressText.textContent =
-      `Selezione troppo grande (${humanBytes(totalBytes)}): il limite è ${humanBytes(ZIP_MAX_BYTES)}. Scegline meno.`;
+    dom.selProgressText.textContent = t('zip_too_big', {
+      size: humanBytes(totalBytes), limit: humanBytes(ZIP_MAX_BYTES),
+    });
     dom.selFill.style.width = '0';
     dom.selAbort.hidden = true;
     return;
@@ -1017,21 +1028,21 @@ async function downloadSelection() {
 
     if (entries.length === 1) {
       saveBlob(new Blob([entries[0].data], { type: 'image/jpeg' }), entries[0].name);
-      dom.selProgressText.textContent = `Scaricata ${entries[0].name}`;
+      dom.selProgressText.textContent = t('downloaded_single', { name: entries[0].name });
     } else {
-      dom.selProgressText.textContent = `Preparazione dell'archivio (${humanBytes(totalBytes)})…`;
+      dom.selProgressText.textContent = t('archive_preparing', { size: humanBytes(totalBytes) });
       /* Un attimo per lasciar disegnare il messaggio prima del lavoro sincrono */
       await new Promise((resolve) => setTimeout(resolve, 30));
       saveBlob(buildZip(entries), archiveName(entries.length));
-      dom.selProgressText.textContent = `Archivio pronto: ${entries.length} foto, ${humanBytes(totalBytes)}`;
+      dom.selProgressText.textContent = tn('archive_ready', entries.length, { size: humanBytes(totalBytes) });
     }
     dom.selAbort.hidden = true;
   } catch (e) {
     dom.selFill.style.width = '0';
     dom.selAbort.hidden = true;
     dom.selProgressText.textContent = e.name === 'AbortError'
-      ? 'Download interrotto.'
-      : `Download non riuscito — ${e.message}`;
+      ? t('download_aborted')
+      : t('download_failed', { msg: e.message });
   } finally {
     state.downloading = false;
     downloadAbort = null;
@@ -1226,7 +1237,7 @@ function caricaHires() {
 
   const originale = caricaGradino(objectUrl(photo), dom.lbHires, 'hires', {
     attendiRiposo: true,
-    allArrivo: () => impostaNota('originale a piena risoluzione', 'originale'),
+    allArrivo: () => impostaNota(t('note_full_res_long'), t('note_full_res_short')),
   });
   /* Se l'originale non arriva resta il gradino intermedio: si può ritentare */
   originale.addEventListener('error', () => { hiresChiesta = false; });
@@ -1343,7 +1354,7 @@ function showCurrent() {
   dom.lbInfoMain.textContent = [humanBytes(photo.size), humanDate(quando(photo))]
     .filter(Boolean).join(' · ');
   /* La nota cambia quando arriva l'originale */
-  impostaNota('anteprima ridotta — usa “Scarica” per l’originale', 'anteprima ridotta');
+  impostaNota(t('note_preview_long'), t('note_preview_short'));
 
   syncLbFav();
   syncFilmstrip();
@@ -1423,7 +1434,7 @@ function updateHeader() {
   /* Voci in elementi separati: il separatore lo disegna il CSS, non è un
      carattere dentro al testo */
   dom.meta.textContent = '';
-  for (const voce of [`${n} foto`, humanBytes(totalBytes), intervalloDate()].filter(Boolean)) {
+  for (const voce of [tn('photos_count', n), humanBytes(totalBytes), intervalloDate()].filter(Boolean)) {
     const s = document.createElement('span');
     s.textContent = voce;
     dom.meta.append(s);
@@ -1431,26 +1442,24 @@ function updateHeader() {
 
   dom.title.textContent = state.source.prefix
     ? state.source.prefix.replace(/\/$/, '').split('/').pop()
-    : 'Galleria foto';
-  document.title = `${dom.title.textContent} · ${n} foto`;
+    : t('doc_title');
+  document.title = `${dom.title.textContent} · ${tn('photos_count', n)}`;
   dom.heroActions.hidden = n === 0;
 
   const origine = `${state.source.objectBase}/${state.source.prefix}`;
-  dom.footerSource.textContent = `Origine: ${origine}`;
+  dom.footerSource.textContent = t('footer_origin', { url: origine });
 }
 
 async function load(rawUrl) {
   const candidates = buildCandidates(rawUrl);
   if (!candidates.length) {
-    showError(`“${rawUrl}” non è un indirizzo valido.`, [
-      'Formato atteso: https://s3.esempio.com/nome-bucket/cartella/',
-    ]);
+    showError(t('invalid_url', { url: rawUrl }), [t('invalid_url_hint')]);
     return;
   }
 
   dom.status.hidden = false;
   dom.error.hidden = true;
-  dom.statusText.textContent = 'Lettura dell’elenco dei file…';
+  dom.statusText.textContent = t('status_loading');
 
   let lastError = null;
   let emptyFallback = null;
@@ -1458,7 +1467,7 @@ async function load(rawUrl) {
   for (const candidate of candidates) {
     try {
       const objects = await listObjects(candidate, (count) => {
-        dom.statusText.textContent = `Lettura dell’elenco dei file… ${count} trovati`;
+        dom.statusText.textContent = t('status_loading_count', { n: count });
       });
       const photos = objects
         .filter((o) => IMAGE_EXT.test(o.key) && o.size > 0)
@@ -1483,25 +1492,16 @@ async function load(rawUrl) {
     state.shown = [];
     dom.status.hidden = true;
     updateHeader();
-    showError('Nessuna immagine trovata in questa cartella.', [
-      'Verifica che il percorso sia corretto (maiuscole e minuscole contano).',
-      'Sono riconosciuti i file jpg, png, gif, webp, avif, bmp, tiff, heic.',
-    ]);
+    showError(t('empty_folder'), [t('empty_folder_hint1'), t('empty_folder_hint2')]);
     return;
   }
 
   const kind = lastError?.kind;
   showError(
-    `Non è stato possibile leggere l’elenco: ${lastError?.message || 'errore sconosciuto'}.`,
+    t('list_error', { msg: lastError?.message || t('unknown_error') }),
     kind === 'network'
-      ? [
-          'Il bucket deve consentire le richieste dal browser (regola CORS con AllowedOrigin “*” e metodo GET).',
-          'Controlla che l’indirizzo sia raggiungibile e che usi https.',
-        ]
-      : [
-          'L’elenco pubblico dei file deve essere consentito (permesso s3:ListBucket per tutti).',
-          'Verifica il nome del bucket e della cartella nell’indirizzo.',
-        ]
+      ? [t('list_error_hint_network1'), t('list_error_hint_network2')]
+      : [t('list_error_hint_other1'), t('list_error_hint_other2')]
   );
 }
 
@@ -1691,15 +1691,15 @@ dom.lbDownload.addEventListener('click', async (e) => {
   if (!photo || dom.lbDownload.dataset.busy) return;
 
   dom.lbDownload.dataset.busy = '1';
-  setDownloadLabel('Attendi…', true);
+  setDownloadLabel(t('download_wait'), true);
   try {
     const res = await fetch(objectUrl(photo), { credentials: 'omit' });
     if (!res.ok) throw new Error(String(res.status));
     saveBlob(await res.blob(), photo.name);
-    setDownloadLabel('Scarica', false);
+    setDownloadLabel(t('download_default'), false);
   } catch {
-    setDownloadLabel('Non riuscito', true);
-    setTimeout(() => setDownloadLabel('Scarica', false), 2500);
+    setDownloadLabel(t('download_failed_short'), true);
+    setTimeout(() => setDownloadLabel(t('download_default'), false), 2500);
   } finally {
     delete dom.lbDownload.dataset.busy;
   }
@@ -1889,7 +1889,18 @@ function showWelcome() {
   openChangePanel(true);
 }
 
+/* Cambiare lingua ricarica la pagina: molti testi dipendono da dati già
+   caricati (nomi dei giorni, conteggi, messaggi d'errore in corso), e
+   rigenerarli tutti sul posto sarebbe più fragile di un nuovo giro da zero. */
+dom.langSelect.value = currentLocale;
+dom.langSelect.addEventListener('change', () => {
+  setLocale(dom.langSelect.value);
+  location.reload();
+});
+
 (function init() {
+  applyStaticTranslations();
+
   const params = new URLSearchParams(location.search);
   const raw = (params.get('bucket-url') || params.get('bucket') || DEFAULT_BUCKET_URL).trim();
 
