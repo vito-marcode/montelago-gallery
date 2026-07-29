@@ -50,7 +50,6 @@ const dom = {
   bucketInput: el('bucket-input'),
   selbar: el('selbar'),
   selCount: el('sel-count'),
-  selHint: el('sel-hint'),
   selAll: el('sel-all'),
   selDownload: el('sel-download'),
   selDownloadText: el('sel-download-text'),
@@ -82,6 +81,13 @@ const dom = {
   lbDownload: el('lb-download'),
   lbDownloadText: el('lb-download-text'),
   lbShare: el('lb-share'),
+  lbFav: el('lb-fav'),
+  zoombar: el('zoombar'),
+  zoomRange: el('zoom-range'),
+  zoomVal: el('zoom-val'),
+  zoomIn: el('zoom-in'),
+  zoomOut: el('zoom-out'),
+  filmstrip: el('filmstrip'),
   sharePanel: el('share-panel'),
   shareLinks: el('share-links'),
   shareCopy: el('share-copy'),
@@ -115,6 +121,8 @@ const state = {
   selecting: false,
   anchor: -1,
   downloading: false,
+  /* La striscia di anteprime va ricostruita al prossimo bisogno */
+  stripDirty: true,
 };
 
 /* ---------------------------------------------------------------- utility */
@@ -306,7 +314,7 @@ function sortPhotos() {
    mescolano i preferiti */
 const FAV_STORE = () => `gallery:fav:${state.source?.objectBase || ''}/${state.source?.prefix || ''}`;
 /* Valore speciale del filtro: non è un giorno */
-const FILTRO_PREFERITI = ' preferiti';
+const FILTRO_PREFERITI = 'preferiti';   // le chiavi dei giorni sono AAAA-MM-GG, non collide
 
 function caricaPreferiti() {
   try {
@@ -553,6 +561,7 @@ function applicaFiltro(chiave) {
     state.shown = state.photos;
   }
   state.anchor = -1;
+  state.stripDirty = true;
   renderDaybar();
   renderGrid();
   updateSelectionUi();
@@ -1121,6 +1130,10 @@ function applicaZoom() {
     dom.lbZoom.style.transform =
       `translate3d(${zoom.x.toFixed(2)}px, ${zoom.y.toFixed(2)}px, 0) scale(${zoom.scale.toFixed(4)})`;
     dom.lb.classList.toggle('zoomed', ingrandita());
+    /* Tiene allineata la barra dello zoom, da qualunque gesto arrivi */
+    const percento = Math.round(zoom.scale * 100);
+    dom.zoomVal.textContent = `${percento}%`;
+    dom.zoomRange.value = String(percento);
   });
 }
 
@@ -1198,11 +1211,82 @@ function caricaHires() {
     if (token !== state.renderToken) return;
     dom.lbHires.src = img.src;
     dom.lb.classList.add('hires');
+    dom.lbInfoNote.textContent = ' · originale a piena risoluzione';
   });
   /* Se l'originale non arriva resta l'anteprima: si può ritentare */
   img.addEventListener('error', () => { hiresChiesta = false; });
   img.src = objectUrl(photo);
 }
+
+/* ----------------------------------------------------- barra dello zoom */
+
+/* Il centro dell'area della foto: i comandi ingrandiscono da lì, non dal
+   punto in cui si è cliccato */
+function centroFoto() {
+  const box = dom.lbImgwrap.getBoundingClientRect();
+  return { x: box.left + box.width / 2, y: box.top + box.height / 2 };
+}
+
+function zoomAScala(nuova) {
+  const c = centroFoto();
+  zoomVerso(c.x, c.y, Math.max(1, nuova) / zoom.scale);
+}
+
+dom.zoomIn.addEventListener('click', () => {
+  const c = centroFoto();
+  conAnimazione(() => zoomVerso(c.x, c.y, 1.4));
+});
+
+dom.zoomOut.addEventListener('click', () => {
+  const c = centroFoto();
+  conAnimazione(() => zoomVerso(c.x, c.y, 1 / 1.4));
+});
+
+dom.zoomRange.addEventListener('input', () => {
+  zoomAScala(Number(dom.zoomRange.value) / 100);
+});
+
+/* ------------------------------------------------- striscia di anteprime */
+
+function renderFilmstrip() {
+  dom.filmstrip.textContent = '';
+  if (state.shown.length < 2) return;
+
+  const frag = document.createDocumentFragment();
+  state.shown.forEach((photo, i) => {
+    const voce = document.createElement('button');
+    voce.type = 'button';
+    voce.className = 'strip-item';
+    voce.dataset.i = String(i);
+    voce.setAttribute('aria-label', photo.name);
+
+    const img = document.createElement('img');
+    /* Stessa misura della griglia: le anteprime sono già in cache */
+    img.src = thumbUrl(photo);
+    img.alt = '';
+    img.loading = 'lazy';
+    img.decoding = 'async';
+    voce.append(img);
+
+    frag.append(voce);
+  });
+  dom.filmstrip.append(frag);
+}
+
+/* Evidenzia la corrente e la porta in vista */
+function syncFilmstrip() {
+  const voci = dom.filmstrip.children;
+  for (const voce of voci) voce.classList.remove('corrente');
+  const attuale = voci[state.index];
+  if (!attuale) return;
+  attuale.classList.add('corrente');
+  attuale.scrollIntoView({ inline: 'center', block: 'nearest' });
+}
+
+dom.filmstrip.addEventListener('click', (e) => {
+  const voce = e.target.closest('.strip-item');
+  if (voce) openAt(Number(voce.dataset.i));
+});
 
 /* -------------------------------------------------------------- lightbox */
 
@@ -1237,7 +1321,16 @@ function showCurrent() {
      sopra la foto occuperebbe due o tre righe */
   dom.lbInfoMain.textContent = [humanBytes(photo.size), humanDate(quando(photo))]
     .filter(Boolean).join(' · ');
+  /* La nota cambia quando arriva l'originale */
   dom.lbInfoNote.textContent = ' · anteprima ridotta — usa “Scarica” per l’originale';
+
+  /* Cuore della barra e anteprima corrente nella striscia */
+  const preferita = state.favorites.has(photo.key);
+  dom.lbFav.setAttribute('aria-pressed', String(preferita));
+  dom.lbFav.title = preferita ? 'Togli dai preferiti' : 'Aggiungi ai preferiti';
+  dom.lbFav.classList.toggle('is-on', preferita);
+  dom.lbFav.querySelector('use')?.setAttribute('href', preferita ? '#i-heart-fill' : '#i-heart');
+  syncFilmstrip();
 
   const single = state.shown.length < 2;
   dom.lbPrev.hidden = single;
@@ -1245,6 +1338,12 @@ function showCurrent() {
 }
 
 function openAt(index, { fromHistory = false } = {}) {
+  /* La striscia si costruisce alla prima apertura, non all'avvio: se il
+     visore non viene mai aperto non serve */
+  if (state.stripDirty) {
+    renderFilmstrip();
+    state.stripDirty = false;
+  }
   if (!state.shown.length) return;
   state.index = ((index % state.shown.length) + state.shown.length) % state.shown.length;
 
@@ -1593,6 +1692,7 @@ dom.lbDownload.addEventListener('click', async (e) => {
 });
 
 dom.lbShare.addEventListener('click', shareCurrent);
+dom.lbFav.addEventListener('click', () => alternaPreferito(state.index));
 dom.shareClose.addEventListener('click', closeSharePanel);
 
 dom.shareCopy.addEventListener('click', async () => {
@@ -1666,6 +1766,7 @@ function misuraPinch() {
 /* Rotellina del mouse. Il pizzico sul trackpad di macOS arriva come wheel
    con ctrlKey premuto, con incrementi molto più piccoli. */
 dom.lbStage.addEventListener('wheel', (e) => {
+  if (e.target.closest('.zoombar')) return;
   e.preventDefault();
   const intensita = e.ctrlKey ? 0.012 : 0.0022;
   zoomVerso(e.clientX, e.clientY, Math.exp(-e.deltaY * intensita));
@@ -1677,7 +1778,7 @@ dom.lbStage.addEventListener('dragstart', (e) => e.preventDefault());
 
 dom.lbStage.addEventListener('pointerdown', (e) => {
   /* Le frecce gestiscono i propri clic */
-  if (e.target.closest('.lb-nav')) return;
+  if (e.target.closest('.lb-nav') || e.target.closest('.zoombar')) return;
 
   /* Toglie di mezzo trascinamento nativo e selezione: sono loro a far
      arrivare un pointercancel a metà gesto */

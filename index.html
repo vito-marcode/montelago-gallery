@@ -134,15 +134,17 @@
     <span class="lb-counter" id="lb-counter"></span>
     <span class="lb-name" id="lb-name"></span>
     <span class="lb-spacer"></span>
-    <button type="button" class="btn btn-secondary" id="lb-share" title="Condividi questa foto">
+    <button type="button" class="btn btn-ghost btn-icon" id="lb-fav" title="Aggiungi ai preferiti">
+      <svg class="icon" aria-hidden="true"><use href="#i-heart"/></svg>
+    </button>
+    <button type="button" class="btn btn-ghost btn-icon" id="lb-share" title="Condividi questa foto">
       <svg class="icon" aria-hidden="true"><use href="#i-share"/></svg>
-      <span>Condividi</span>
     </button>
     <a class="btn btn-secondary" id="lb-download" download title="Scarica l'originale">
       <svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>
       <span id="lb-download-text">Scarica</span>
     </a>
-    <button type="button" class="btn btn-secondary btn-icon" id="lb-close" aria-label="Chiudi (Esc)">✕</button>
+    <button type="button" class="btn btn-ghost btn-icon" id="lb-close" aria-label="Chiudi (Esc)">✕</button>
   </div>
 
   <div class="dialog share-panel" id="share-panel" hidden role="dialog" aria-label="Condividi">
@@ -168,11 +170,23 @@
     <button type="button" class="lb-nav lb-next" id="lb-next" aria-label="Foto successiva">
       <span><svg class="chevron" aria-hidden="true"><use href="#i-chevron"/></svg></span>
     </button>
+
+    <!-- Compare solo a foto ingrandita -->
+    <div class="zoombar" id="zoombar">
+      <button type="button" class="zoom-btn" id="zoom-out" aria-label="Riduci">−</button>
+      <input type="range" class="zoom-range" id="zoom-range"
+             min="100" max="500" step="1" value="100" aria-label="Ingrandimento">
+      <span class="zoom-val" id="zoom-val">100%</span>
+      <button type="button" class="zoom-btn" id="zoom-in" aria-label="Ingrandisci">+</button>
+    </div>
   </div>
 
   <p class="lb-info" id="lb-info">
     <span id="lb-info-main"></span><span class="lb-info-note" id="lb-info-note"></span>
   </p>
+
+  <!-- Striscia di anteprime: solo dove c'è spazio, non su mobile -->
+  <div class="filmstrip" id="filmstrip" aria-label="Altre foto"></div>
 </div>
 
 <noscript>

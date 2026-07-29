@@ -607,6 +607,9 @@ main {
 
 .lb-bar .btn { flex: none; }
 
+/* Cuore acceso quando la foto è tra i preferiti */
+#lb-fav.is-on { color: var(--color-accent-300); }
+
 /* ---------- pannello di condivisione ---------- */
 
 /* Estende .dialog del sistema, ma ancorato all'angolo invece che centrato */
@@ -812,6 +815,142 @@ main {
   font-size: 12px;
 }
 
+/* ---------- barra dello zoom ---------- */
+
+/* Capsula sospesa in fondo alla foto. Compare solo a foto ingrandita: a
+   scala 1 non avrebbe nulla da regolare. */
+.zoombar {
+  position: absolute;
+  z-index: 4;
+  left: 50%;
+  bottom: var(--space-6);
+  transform: translateX(-50%) translateY(var(--space-8));
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-neutral-900) 88%, transparent);
+  backdrop-filter: blur(10px);
+  box-shadow: var(--shadow-md);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .16s ease, transform .16s ease;
+}
+
+.lightbox.zoomed .zoombar {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(-50%) translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .zoombar { transition-duration: 0s; }
+}
+
+.zoom-btn {
+  width: 26px;
+  height: 26px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-text);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.zoom-btn:hover { background: color-mix(in srgb, var(--color-text) 12%, transparent); }
+
+.zoom-val {
+  min-width: 4.2ch;
+  text-align: right;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+}
+
+/* Cursore su misura: il sistema non porta uno slider */
+.zoom-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 120px;
+  height: 4px;
+  margin: 0;
+  border-radius: 2px;
+  background: var(--color-neutral-700);
+  cursor: pointer;
+}
+
+.zoom-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 13px;
+  height: 13px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--color-accent);
+}
+
+.zoom-range::-moz-range-thumb {
+  width: 13px;
+  height: 13px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--color-accent);
+}
+
+.zoom-range::-moz-range-progress {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--color-accent);
+}
+
+/* ---------- striscia di anteprime ---------- */
+
+.filmstrip {
+  display: flex;
+  gap: var(--space-2);
+  padding: 0 var(--space-4) var(--space-4);
+  overflow-x: auto;
+  scrollbar-width: none;
+  scroll-behavior: smooth;
+}
+
+.filmstrip::-webkit-scrollbar { display: none; }
+
+.strip-item {
+  flex: none;
+  width: 78px;
+  height: 56px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--color-neutral-900);
+  cursor: pointer;
+  opacity: .5;
+  transition: opacity .15s ease;
+}
+
+.strip-item img { width: 100%; height: 100%; object-fit: cover; }
+
+.strip-item:hover { opacity: .85; }
+
+/* La corrente si stacca: piena opacità e anello accento */
+.strip-item.corrente {
+  opacity: 1;
+  box-shadow: inset 0 0 0 2px var(--color-accent), 0 0 0 2px var(--color-accent);
+}
+
+/* Su mobile la foto prende tutto lo schermo: niente striscia */
+@media (max-width: 820px), (hover: none) and (pointer: coarse) {
+  .filmstrip { display: none; }
+}
+
 /* Su schermi stretti e sui dispositivi a tocco la foto prende tutto lo
    schermo: barra e didascalia si sovrappongono invece di rubare altezza.
    Le frecce invece sono superflue solo dove si scorre col dito: su una
@@ -857,7 +996,6 @@ main {
 /* Ancora più stretto: solo icone, altrimenti la barra sborda.
    Il testo resta leggibile dagli screen reader, non è display:none. */
 @media (max-width: 430px) {
-  #lb-share span,
   #lb-download span {
     position: absolute;
     width: 1px;
