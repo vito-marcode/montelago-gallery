@@ -1500,6 +1500,7 @@ dom.grid.addEventListener('pointerdown', (e) => {
     index: Number(tile.dataset.i),
     x: e.clientX,
     y: e.clientY,
+    pointerType: e.pointerType,
     fired: false,
     timer: setTimeout(() => {
       press.fired = true;
@@ -1524,13 +1525,20 @@ dom.grid.addEventListener('click', (e) => {
 
   /* Il clic che segue una pressione prolungata è già stato gestito */
   const wasLongPress = press?.fired;
+  /* Sul tocco il segno di spunta non si vede finché non si è in selezione:
+     un tap che gli capita sopra deve aprire la foto come al centro, non
+     scambiarlo per un tap sul cerchietto che nessuno ha visto */
+  const daTocco = press?.pointerType && press.pointerType !== 'mouse';
   cancelPress();
   if (wasLongPress) return;
 
-  /* Il cuore e il segno di spunta agiscono sempre, anche fuori dalla
-     modalità selezione, e non aprono la foto */
+  /* Il cuore agisce sempre, anche fuori dalla modalità selezione, e non
+     apre la foto */
   if (e.target.closest('.tile-fav')) { alternaPreferito(index); return; }
-  if (e.target.closest('.tile-check')) { enterSelectionWith(index); return; }
+  if (e.target.closest('.tile-check') && (state.selecting || !daTocco)) {
+    enterSelectionWith(index);
+    return;
+  }
 
   if (e.shiftKey && state.selecting && state.anchor >= 0) selectRange(state.anchor, index);
   else if (e.metaKey || e.ctrlKey) enterSelectionWith(index);

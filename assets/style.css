@@ -517,9 +517,12 @@ main {
   z-index: 2;
 }
 
+/* :focus-within resterebbe acceso anche dopo un tap: sui touch il tocco che
+   apre il visore lascia il focus sulla foto, e riappare ancora al ritorno
+   alla griglia. :focus-visible lo esclude, restando per la sola tastiera. */
 .grid.selecting .tile-check,
 .tile:hover .tile-check,
-.tile:focus-within .tile-check,
+.tile:has(:focus-visible) .tile-check,
 .tile.selected .tile-check { display: block; }
 
 /* Tre stati, tutti sopra la foto quindi chiari in entrambi i temi. Cambiano
@@ -568,7 +571,7 @@ main {
 }
 
 .tile:hover .tile-fav,
-.tile:focus-within .tile-fav,
+.tile:has(:focus-visible) .tile-fav,
 .tile.favorita .tile-fav { display: grid; }
 
 .tile.favorita .tile-fav { color: var(--su-foto-accento); }
@@ -650,7 +653,7 @@ main {
 }
 
 .tile.ready:hover .tile-label,
-.tile.ready:focus-within .tile-label { opacity: 1; }
+.tile.ready:has(:focus-visible) .tile-label { opacity: 1; }
 
 /* ---------- piede ---------- */
 
