@@ -49,7 +49,6 @@ const dom = {
   favFilter: el('fav-filter'),
   favCount: el('fav-count'),
   downloadAll: el('download-all'),
-  shareGallery: el('share-gallery'),
   selectBtn: el('select-btn'),
   changePanel: el('change-panel'),
   bucketInput: el('bucket-input'),
@@ -87,7 +86,6 @@ const dom = {
   lbInfoMain: el('lb-info-main'),
   lbDownload: el('lb-download'),
   lbDownloadText: el('lb-download-text'),
-  lbShare: el('lb-share'),
   lbFav: el('lb-fav'),
   zoombar: el('zoombar'),
   zoomRange: el('zoom-range'),
@@ -95,10 +93,6 @@ const dom = {
   zoomIn: el('zoom-in'),
   zoomOut: el('zoom-out'),
   filmstrip: el('filmstrip'),
-  sharePanel: el('share-panel'),
-  shareLinks: el('share-links'),
-  shareCopy: el('share-copy'),
-  shareClose: el('share-close'),
   lbPrev: el('lb-prev'),
   lbNext: el('lb-next'),
   lbClose: el('lb-close'),
@@ -1039,69 +1033,6 @@ async function downloadSelection() {
   }
 }
 
-/* ----------------------------------------------------------- condivisione */
-
-/* Link alla galleria aperta su questa foto: il deep link #chiave la apre
-   direttamente, quindi chi lo riceve vede la foto nel suo contesto */
-function shareUrl(photo) {
-  const url = new URL(location.href);
-  url.hash = encodeURIComponent(photo.key);
-  return url.toString();
-}
-
-const SHARE_TARGETS = [
-  { nome: 'WhatsApp', url: (u, t) => `https://wa.me/?text=${encodeURIComponent(`${t} ${u}`)}` },
-  { nome: 'Telegram', url: (u, t) => `https://t.me/share/url?url=${encodeURIComponent(u)}&text=${encodeURIComponent(t)}` },
-  { nome: 'Facebook', url: (u) => `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(u)}` },
-  { nome: 'X', url: (u, t) => `https://twitter.com/intent/tweet?url=${encodeURIComponent(u)}&text=${encodeURIComponent(t)}` },
-  { nome: 'Email', url: (u, t) => `mailto:?subject=${encodeURIComponent(t)}&body=${encodeURIComponent(u)}` },
-];
-
-function closeSharePanel() {
-  dom.sharePanel.hidden = true;
-  dom.shareCopy.textContent = 'Copia link';
-}
-
-function openSharePanel(photo) {
-  const url = shareUrl(photo);
-  const testo = `Foto ${photo.name}`;
-
-  dom.shareLinks.textContent = '';
-  for (const target of SHARE_TARGETS) {
-    const link = document.createElement('a');
-    /* Pulsanti del design system, non link nudi */
-    link.className = 'btn btn-secondary';
-    link.href = target.url(url, testo);
-    link.textContent = target.nome;
-    /* Si apre in una scheda nuova: la condivisione la conferma l'utente
-       nell'interfaccia del servizio, il sito non pubblica nulla da sé */
-    link.target = '_blank';
-    link.rel = 'noopener noreferrer';
-    dom.shareLinks.append(link);
-  }
-
-  dom.sharePanel.hidden = false;
-  dom.shareCopy.focus({ preventScroll: true });
-}
-
-async function shareCurrent() {
-  const photo = state.shown[state.index];
-  if (!photo) return;
-  const url = shareUrl(photo);
-
-  /* Su mobile il pannello di sistema è l'opzione migliore: raggiunge tutte
-     le app installate. Altrove si ricade sull'elenco esplicito. */
-  if (navigator.share) {
-    try {
-      await navigator.share({ title: photo.name, text: `Foto ${photo.name}`, url });
-      return;
-    } catch (e) {
-      if (e.name === 'AbortError') return; // annullata dall'utente
-    }
-  }
-  openSharePanel(photo);
-}
-
 /* ------------------------------------------------------------------- zoom */
 
 const ZOOM_MAX = 5;
@@ -1341,7 +1272,6 @@ function showCurrent() {
   if (!photo) return;
 
   state.renderToken += 1;
-  closeSharePanel();
   azzeraZoom();
   dom.lb.classList.remove('ready', 'lqip');
   dom.lbImg.removeAttribute('src');
@@ -1402,7 +1332,6 @@ function openAt(index, { fromHistory = false } = {}) {
 
 function closeLightbox({ fromHistory = false } = {}) {
   if (!lightboxOpen()) return;
-  closeSharePanel();
   dom.lb.hidden = true;
   dom.lbImg.removeAttribute('src');
   document.body.style.overflow = '';
@@ -1629,25 +1558,6 @@ dom.downloadAll.addEventListener('click', () => {
   dom.selDownload.focus({ preventScroll: true });
 });
 
-/* Condivide la galleria, non una singola foto: stesso indirizzo senza #chiave */
-dom.shareGallery.addEventListener('click', async () => {
-  const url = location.origin + location.pathname + location.search;
-  const titolo = dom.title.textContent;
-  if (navigator.share) {
-    try {
-      await navigator.share({ title: titolo, text: `Galleria ${titolo}`, url });
-      return;
-    } catch (e) {
-      if (e.name === 'AbortError') return;
-    }
-  }
-  try {
-    await navigator.clipboard.writeText(url);
-    dom.shareGallery.querySelector('span').textContent = 'Link copiato';
-    setTimeout(() => { dom.shareGallery.querySelector('span').textContent = 'Condividi'; }, 2500);
-  } catch { /* niente appunti disponibili */ }
-});
-
 dom.selAll.addEventListener('click', () => {
   const tutte = state.selection.size === state.shown.length;
   state.shown.forEach((_, i) => setSelected(i, !tutte));
@@ -1738,20 +1648,7 @@ dom.lbDownload.addEventListener('click', async (e) => {
   }
 });
 
-dom.lbShare.addEventListener('click', shareCurrent);
 dom.lbFav.addEventListener('click', () => alternaPreferito(state.index));
-dom.shareClose.addEventListener('click', closeSharePanel);
-
-dom.shareCopy.addEventListener('click', async () => {
-  const photo = state.shown[state.index];
-  if (!photo) return;
-  try {
-    await navigator.clipboard.writeText(shareUrl(photo));
-    dom.shareCopy.textContent = 'Link copiato';
-  } catch {
-    dom.shareCopy.textContent = 'Copia non riuscita';
-  }
-});
 
 dom.lbClose.addEventListener('click', () => closeLightbox());
 dom.lbPrev.addEventListener('click', () => step(-1));
@@ -1780,9 +1677,7 @@ document.addEventListener('keydown', (e) => {
     }
     return;
   }
-  /* Esc chiude prima il pannello di condivisione, poi la foto */
-  if (e.key === 'Escape' && !dom.sharePanel.hidden) { closeSharePanel(); }
-  else if (e.key === 'Escape') { closeLightbox(); }
+  if (e.key === 'Escape') { closeLightbox(); }
   else if (e.key === 'ArrowRight') { step(1); }
   else if (e.key === 'ArrowLeft') { step(-1); }
   else if (e.key === 'Home') { openAt(0); }

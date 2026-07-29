@@ -37,11 +37,6 @@
           stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
     <circle cx="12" cy="12" r="9"/><path d="m8 12 2.6 2.6L16 9.4"/>
   </symbol>
-  <symbol id="i-share" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-    <circle cx="18" cy="5" r="2.6"/><circle cx="6" cy="12" r="2.6"/><circle cx="18" cy="19" r="2.6"/>
-    <path d="m8.3 10.8 7.4-4.3"/><path d="m8.3 13.2 7.4 4.3"/>
-  </symbol>
 </svg>
 
 <header class="hero" id="hero">
@@ -53,7 +48,6 @@
   <div class="hero-scrim" aria-hidden="true"></div>
 
   <div class="hero-body">
-    <p class="hero-kicker"><span class="hero-dash" aria-hidden="true"></span>Galleria condivisa</p>
     <h1 class="hero-title" id="title">Galleria foto</h1>
     <p class="hero-meta" id="meta">Caricamento…</p>
 
@@ -61,10 +55,6 @@
       <button type="button" class="btn btn-primary" id="download-all">
         <svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>
         <span>Scarica tutto</span>
-      </button>
-      <button type="button" class="btn btn-secondary" id="share-gallery">
-        <svg class="icon" aria-hidden="true"><use href="#i-share"/></svg>
-        <span>Condividi</span>
       </button>
       <button type="button" class="btn btn-ghost" id="select-btn">
         <svg class="icon" aria-hidden="true"><use href="#i-check-circle"/></svg>
@@ -151,21 +141,11 @@
     <button type="button" class="btn lb-act" id="lb-fav" title="Aggiungi ai preferiti">
       <svg class="icon" aria-hidden="true"><use href="#i-heart"/></svg>
     </button>
-    <button type="button" class="btn lb-act" id="lb-share" title="Condividi questa foto">
-      <svg class="icon" aria-hidden="true"><use href="#i-share"/></svg>
-    </button>
     <a class="btn lb-pill" id="lb-download" download title="Scarica l'originale">
       <svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>
       <span id="lb-download-text">Scarica</span>
     </a>
     <button type="button" class="btn lb-act" id="lb-close" aria-label="Chiudi (Esc)">✕</button>
-  </div>
-
-  <div class="dialog share-panel" id="share-panel" hidden role="dialog" aria-label="Condividi">
-    <p class="dialog-title share-title">Condividi questa foto</p>
-    <div class="share-links" id="share-links"></div>
-    <button type="button" class="btn btn-primary" id="share-copy">Copia link</button>
-    <button type="button" class="btn btn-secondary" id="share-close">Chiudi</button>
   </div>
 
   <div class="lb-stage" id="lb-stage">

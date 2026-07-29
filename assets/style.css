@@ -123,25 +123,6 @@ code {
 
 .hero-body { max-width: 62ch; }
 
-.hero-kicker {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  margin: 0 0 var(--space-4);
-  font-size: 13px;
-  letter-spacing: .14em;
-  text-transform: uppercase;
-  color: var(--color-accent-300);
-}
-
-/* Marca corta: resta piena, non sfuma come i fili liberi */
-.hero-dash {
-  width: 34px;
-  height: 2px;
-  flex: none;
-  background: var(--color-accent);
-}
-
 /* Misura da titolone che i token non portano: parte dai 42px dell'h1 */
 .hero-title {
   margin: 0;
@@ -332,6 +313,13 @@ code {
 
 @media (prefers-reduced-motion: reduce) {
   .selbar { transition-duration: 0s; }
+}
+
+/* Sullo schermo dello smartphone i 32px di Nocturne sono sproporzionati:
+   titoli di sezione, card d'errore e intestazioni di giornata scendono un
+   po' senza perdere la gerarchia con h1/h3. */
+@media (max-width: 560px) {
+  h2 { font-size: 26px; }
 }
 
 /* Su schermi stretti diventa un bottom sheet: angoli superiori arrotondati,
@@ -771,28 +759,6 @@ main {
 /* Cuore acceso quando la foto è tra i preferiti */
 #lb-fav.is-on { color: var(--su-foto-accento); }
 
-/* ---------- pannello di condivisione ---------- */
-
-/* Estende .dialog del sistema, ma ancorato all'angolo invece che centrato */
-.share-panel {
-  position: absolute;
-  top: 52px;
-  right: var(--space-4);
-  z-index: 2;
-  width: min(280px, calc(100vw - var(--space-8)));
-}
-
-.share-title { margin: 0; }
-
-.share-links {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--space-2);
-}
-
-/* Con un numero dispari di servizi l'ultimo occuperebbe mezza riga */
-.share-links .btn:last-child:nth-child(odd) { grid-column: 1 / -1; }
-
 .lb-stage {
   flex: 1;
   display: flex;
@@ -1162,9 +1128,6 @@ main {
     background: linear-gradient(to top, var(--scrim), transparent);
     padding: var(--space-8) var(--space-4) calc(var(--space-4) + env(safe-area-inset-bottom, 0px));
   }
-
-  /* Il pannello di condivisione non deve finire sotto la barra sovrapposta */
-  .share-panel { top: auto; bottom: calc(var(--space-6) + env(safe-area-inset-bottom, 0px)); }
 }
 
 /* La nota ha due forme: quella distesa e una corta per lo schermo stretto.
@@ -1256,39 +1219,35 @@ main {
      sopra. Nessun ingombro cambia. */
   .hero-photo {
     mix-blend-mode: normal;
-    opacity: 1;
+    opacity: .85;
     filter: none;
+    -webkit-mask-image: none;
+    mask-image: none;
   }
 
-  /* Scuro a sinistra e in basso, dove stanno le scritte; pulito a destra,
-     dove sta il soggetto. Il velo si chiude sul fondo della pagina. */
+  /* Velo uniforme e leggero su tutta la foto, non direzionale: la foto ora
+     regge da sola il contrasto coi testi grazie alla sua opacità ridotta. */
   .hero-scrim {
-    background:
-      linear-gradient(90deg,
-        rgba(19, 21, 35, .88) 0%,
-        rgba(19, 21, 35, .50) 46%,
-        rgba(19, 21, 35, .12) 78%,
-        transparent 100%),
-      linear-gradient(180deg,
-        rgba(19, 21, 35, .42) 0%,
-        rgba(19, 21, 35, .30) 26%,
-        rgba(19, 21, 35, .82) 74%,
-        var(--velo-fine) 100%);
+    background: rgba(19, 21, 35, .34);
   }
 
-  /* L'occhiello è testo nudo dentro un <p>, non dentro uno span: col solo
-     selettore della spec restava senza ombra. */
   .hero-body h1,
-  .hero-body span,
-  .hero-body .hero-kicker {
+  .hero-body span {
     text-shadow: 0 1px 10px rgba(19, 21, 35, .55);
   }
 
+  /* La meta sta sopra la foto come i pulsanti: resta nel bianco quasi puro
+     di --su-foto, non nel grigio pensato per il fondo pagina. */
+  .hero-body .hero-meta,
+  .hero-body .hero-meta span + span::before {
+    color: var(--su-foto);
+  }
+
   /* I pulsanti prendono un fondo proprio: restano leggibili anche sulle zone
-     chiare della foto. Solo colori — padding e bordo restano quelli di .btn. */
+     chiare della foto, senza bordo colorato. */
   .hero-body .btn {
     background: rgba(19, 21, 35, .5);
-    border-color: color-mix(in srgb, var(--su-foto) 42%, transparent);
+    border-color: transparent;
     color: var(--su-foto);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
@@ -1297,11 +1256,28 @@ main {
 
   .hero-body .btn:hover {
     background: rgba(19, 21, 35, .68);
-    border-color: var(--su-foto-accento);
   }
-
-  .hero-body .btn-primary { border-color: var(--su-foto-accento); }
 
   /* Riempimento, non testo: qui va il viola vivace */
   .sel-fill { background: #796cbf; }
+
+  /* --- filtri per giorno ---
+     La consegna vuole il fermo come capsula piena color lavanda, non un
+     contorno: il testo torna quello normale della pagina, non il viola che i
+     pulsanti usano altrove. Le voci non selezionate restano testo semplice. */
+  .daybar { background-color: #f4f5fb; }
+
+  .daybar-scroll .chip.btn-primary {
+    background: var(--color-accent-700);
+    border-color: transparent;
+    color: var(--color-text);
+  }
+
+  .daybar-scroll .chip.btn-primary:hover {
+    background: color-mix(in srgb, var(--color-accent-700) 85%, var(--color-accent));
+  }
+
+  .daybar-scroll .chip.btn-primary .chip-n { color: var(--muted); }
+
+  .daybar-scroll .chip.btn-ghost { color: var(--color-text); }
 }
