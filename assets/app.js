@@ -11,9 +11,10 @@ const IMAGE_EXT = /\.(jpe?g|png|gif|webp|avif|bmp|tiff?|heic|heif)$/i;
 const PROXY_BASE = 'https://wsrv.nl/?url=';
 /* Larghezze fisse: aumentano le probabilità di colpire la cache della CDN */
 const THUMB_STEPS = [320, 480, 640, 800, 1024];
-const PREVIEW_WIDTH = 1600;
-/* Gradino intermedio dello zoom: ~140 KB contro i megabyte dell'originale */
-const MID_WIDTH = 2400;
+/* Serve sia da anteprima iniziale sia da gradino mostrato durante lo zoom,
+   finché non arriva l'originale: per questo è più larga di quanto servirebbe
+   alla sola apertura del visore */
+const PREVIEW_WIDTH = 2400;
 const PAGE_SIZE = 1000;
 /* Durata della pressione prolungata che avvia la selezione */
 const LONG_PRESS_MS = 450;
@@ -78,7 +79,6 @@ const dom = {
   lbImg: el('lb-img'),
   lbPlaceholder: el('lb-placeholder'),
   lbHires: el('lb-hires'),
-  lbMid: el('lb-mid'),
   notaLunga: el('nota-lunga'),
   notaBreve: el('nota-breve'),
   lbZoom: el('lb-zoom'),
@@ -1054,7 +1054,7 @@ async function downloadSelection() {
 
 const ZOOM_MAX = 5;
 const ZOOM_DOPPIO_TOCCO = 2.5;
-/* Oltre questa scala l'anteprima da 1600 px si vedrebbe sfocata */
+/* Oltre questa scala conviene iniziare a scaricare l'originale */
 const HIRES_TRIGGER = 1.4;
 const DOPPIO_TOCCO_MS = 300;
 /* Spostamento entro il quale un tocco è un tocco e non un trascinamento */
@@ -1174,9 +1174,8 @@ function azzeraZoom() {
      è il punto in cui la barra si riallinea */
   dom.zoomVal.textContent = '100%';
   dom.zoomRange.value = '100';
-  dom.lb.classList.remove('zoomed', 'mid', 'hires', 'solo-alta');
+  dom.lb.classList.remove('zoomed', 'hires', 'solo-alta');
   dom.lbHires.removeAttribute('src');
-  dom.lbMid.removeAttribute('src');
   punti.clear();
   pinchPrec = null;
   trascinaPrec = null;
@@ -1193,14 +1192,13 @@ function decodificaConLimite(img, ms = 600) {
   });
 }
 
-/* Ingrandendo si sale di risoluzione in due gradini, perché l'originale è
-   un file intero: su rete mobile ci mette secondi e nel frattempo si
-   guarderebbe l'anteprima sfocata. Il gradino intermedio pesa una frazione
-   e arriva quasi subito; l'originale gli si sovrappone quando è pronto.
-   Nessuno dei due lascia buchi: entrano sopra ciò che è già opaco.
-   attendiRiposo rimanda il montaggio a fine gesto: serve solo per
-   l'originale, che su una foto da telefono può pesare diversi megapixel e
-   non deve mai comporsi alla GPU mentre il livello è ancora in movimento. */
+/* Ingrandendo si passa all'originale, che è un file intero: su rete mobile
+   ci mette secondi, e nel frattempo resta visibile l'anteprima già caricata
+   (a 2400 px, sufficiente fino alla soglia di zoom). L'originale entra sopra
+   ciò che è già opaco: non lascia mai un buco.
+   attendiRiposo rimanda il montaggio a fine gesto: l'originale, su una foto
+   da telefono, può pesare diversi megapixel e non deve mai comporsi alla GPU
+   mentre il livello è ancora in movimento. */
 function caricaGradino(sorgente, elemento, classe, { allArrivo, attendiRiposo } = {}) {
   const token = state.renderToken;
   const img = new Image();
@@ -1233,13 +1231,11 @@ function caricaHires() {
   if (hiresChiesta || !photo) return;
   hiresChiesta = true;
 
-  caricaGradino(proxied(photo, MID_WIDTH), dom.lbMid, 'mid');
-
   const originale = caricaGradino(objectUrl(photo), dom.lbHires, 'hires', {
     attendiRiposo: true,
     allArrivo: () => impostaNota(t('note_full_res_long'), t('note_full_res_short')),
   });
-  /* Se l'originale non arriva resta il gradino intermedio: si può ritentare */
+  /* Se l'originale non arriva resta l'anteprima: si può ritentare */
   originale.addEventListener('error', () => { hiresChiesta = false; });
 }
 
@@ -1657,10 +1653,10 @@ dom.lbImg.addEventListener('transitionend', (e) => {
   }
 });
 
-/* Quando l'originale è del tutto opaco, miniatura e anteprima sotto sono
-   solo memoria occupata: si liberano le loro bitmap. Il gradino medio resta
-   invece caricato — serve da riparo ogni volta che il gesto riprende, non
-   solo alla prima dissolvenza — quindi qui non si tocca. */
+/* Quando l'originale è del tutto opaco, la miniatura sotto è solo memoria
+   occupata: si libera la sua bitmap. L'anteprima invece resta caricata —
+   serve da riparo ogni volta che il gesto riprende, non solo alla prima
+   dissolvenza — quindi qui non si tocca. */
 dom.lbHires.addEventListener('transitionend', (e) => {
   if (e.propertyName !== 'opacity' || !dom.lb.classList.contains('hires')) return;
   dom.lb.classList.add('solo-alta');
