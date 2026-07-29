@@ -752,8 +752,10 @@ main {
 
 .lightbox.ready #lb-img { opacity: 1; }
 
-/* L'originale, chiesto solo quando si ingrandisce: entra sopra le altre due,
-   che restano opache sotto */
+/* I due gradini chiesti quando si ingrandisce. Entrano in dissolvenza sopra
+   ciò che c'è già, che resta opaco sotto: mai un buco durante lo scambio.
+   L'intermedio arriva in un attimo, l'originale quando può. */
+#lb-mid,
 #lb-hires {
   max-width: 100%;
   max-height: 100%;
@@ -762,6 +764,7 @@ main {
   transition: opacity .2s ease;
 }
 
+.lightbox.mid #lb-mid { opacity: 1; }
 .lightbox.hires #lb-hires { opacity: 1; }
 
 /* Miniatura della griglia mostrata ingrandita: resta opaca sotto la foto
@@ -1005,10 +1008,16 @@ main {
   .share-panel { top: auto; bottom: calc(var(--space-6) + env(safe-area-inset-bottom, 0px)); }
 }
 
+/* La nota ha due forme: quella distesa e una corta per lo schermo stretto.
+   Prima la nascondevo del tutto su mobile, togliendo l'unico modo di sapere
+   se si sta guardando l'anteprima o l'originale. */
+.nota-breve { display: none; }
+
 /* Sotto questa soglia il nome del file non ci sta accanto ai pulsanti */
 @media (max-width: 560px) {
   .lb-name { display: none; }
-  .lb-info-note { display: none; }
+  .nota-lunga { display: none; }
+  .nota-breve { display: inline; }
 }
 
 /* Ancora più stretto: solo icone, altrimenti la barra sborda.

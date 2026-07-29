@@ -12,6 +12,8 @@ const PROXY_BASE = 'https://wsrv.nl/?url=';
 /* Larghezze fisse: aumentano le probabilità di colpire la cache della CDN */
 const THUMB_STEPS = [320, 480, 640, 800, 1024];
 const PREVIEW_WIDTH = 1600;
+/* Gradino intermedio dello zoom: ~140 KB contro i megabyte dell'originale */
+const MID_WIDTH = 2400;
 const PAGE_SIZE = 1000;
 /* Durata della pressione prolungata che avvia la selezione */
 const LONG_PRESS_MS = 450;
@@ -74,13 +76,15 @@ const dom = {
   lbImg: el('lb-img'),
   lbPlaceholder: el('lb-placeholder'),
   lbHires: el('lb-hires'),
+  lbMid: el('lb-mid'),
+  notaLunga: el('nota-lunga'),
+  notaBreve: el('nota-breve'),
   lbZoom: el('lb-zoom'),
   lbImgwrap: el('lb-imgwrap'),
   lbName: el('lb-name'),
   lbCounter: el('lb-counter'),
   lbInfo: el('lb-info'),
   lbInfoMain: el('lb-info-main'),
-  lbInfoNote: el('lb-info-note'),
   lbDownload: el('lb-download'),
   lbDownloadText: el('lb-download-text'),
   lbShare: el('lb-share'),
@@ -1192,33 +1196,44 @@ function azzeraZoom() {
      è il punto in cui la barra si riallinea */
   dom.zoomVal.textContent = '100%';
   dom.zoomRange.value = '100';
-  dom.lb.classList.remove('zoomed', 'hires');
+  dom.lb.classList.remove('zoomed', 'mid', 'hires');
   dom.lbHires.removeAttribute('src');
+  dom.lbMid.removeAttribute('src');
   punti.clear();
   pinchPrec = null;
   trascinaPrec = null;
 }
 
-/* Ingrandendo si carica l'originale dal bucket, alla sua piena risoluzione.
-   Si sostituisce in silenzio: entra in dissolvenza sopra l'anteprima, che
-   resta opaca sotto, come già avviene fra miniatura e anteprima. */
-function caricaHires() {
-  const photo = state.shown[state.index];
-  if (hiresChiesta || !photo) return;
-  hiresChiesta = true;
-
+/* Ingrandendo si sale di risoluzione in due gradini, perché l'originale è
+   un file intero: su rete mobile ci mette secondi e nel frattempo si
+   guarderebbe l'anteprima sfocata. Il gradino intermedio pesa una frazione
+   e arriva quasi subito; l'originale gli si sovrappone quando è pronto.
+   Nessuno dei due lascia buchi: entrano sopra ciò che è già opaco. */
+function caricaGradino(sorgente, elemento, classe, allArrivo) {
   const token = state.renderToken;
   const img = new Image();
   img.addEventListener('load', () => {
     /* Se nel frattempo si è cambiata foto, questo risultato non serve più */
     if (token !== state.renderToken) return;
-    dom.lbHires.src = img.src;
-    dom.lb.classList.add('hires');
-    dom.lbInfoNote.textContent = ' · originale a piena risoluzione';
+    elemento.src = img.src;
+    dom.lb.classList.add(classe);
+    if (allArrivo) allArrivo();
   });
-  /* Se l'originale non arriva resta l'anteprima: si può ritentare */
-  img.addEventListener('error', () => { hiresChiesta = false; });
-  img.src = objectUrl(photo);
+  img.src = sorgente;
+  return img;
+}
+
+function caricaHires() {
+  const photo = state.shown[state.index];
+  if (hiresChiesta || !photo) return;
+  hiresChiesta = true;
+
+  caricaGradino(proxied(photo, MID_WIDTH), dom.lbMid, 'mid');
+
+  const originale = caricaGradino(objectUrl(photo), dom.lbHires, 'hires',
+    () => impostaNota('originale a piena risoluzione', 'originale'));
+  /* Se l'originale non arriva resta il gradino intermedio: si può ritentare */
+  originale.addEventListener('error', () => { hiresChiesta = false; });
 }
 
 /* ----------------------------------------------------- barra dello zoom */
@@ -1291,6 +1306,14 @@ dom.filmstrip.addEventListener('click', (e) => {
   if (voce) openAt(Number(voce.dataset.i));
 });
 
+/* La nota della didascalia ha due forme: distesa e corta per lo schermo
+   stretto, dove quella lunga andrebbe a capo sopra la foto. Le imposta
+   entrambe, a mostrarne una pensa il CSS. */
+function impostaNota(lunga, breve) {
+  dom.notaLunga.textContent = ` · ${lunga}`;
+  dom.notaBreve.textContent = ` · ${breve}`;
+}
+
 /* -------------------------------------------------------------- lightbox */
 
 function lightboxOpen() {
@@ -1325,7 +1348,7 @@ function showCurrent() {
   dom.lbInfoMain.textContent = [humanBytes(photo.size), humanDate(quando(photo))]
     .filter(Boolean).join(' · ');
   /* La nota cambia quando arriva l'originale */
-  dom.lbInfoNote.textContent = ' · anteprima ridotta — usa “Scarica” per l’originale';
+  impostaNota('anteprima ridotta — usa “Scarica” per l’originale', 'anteprima ridotta');
 
   syncLbFav();
   syncFilmstrip();
