@@ -161,8 +161,30 @@ code {
 
 .daybar-spacer { flex: 1; min-width: var(--space-4); }
 
-/* Il cuore dei preferiti: stessa capsula, icona al posto dell'etichetta */
+/* Il cuore dei preferiti: stessa capsula, icona al posto dell'etichetta.
+   Resta ancorato a destra mentre i giorni scorrono sotto, quindi serve un
+   fondo pieno: altrimenti le capsule si vedrebbero attraverso. */
+.chip-fav {
+  position: sticky;
+  right: 0;
+  z-index: 1;
+  background-color: color-mix(in srgb, var(--color-bg) 94%, transparent);
+}
+
 .chip-fav .icon { width: 17px; height: 17px; }
+
+/* Sfumatura a sinistra: i giorni entrano sotto il cuore senza tagliarsi netti */
+.chip-fav::before {
+  content: "";
+  position: absolute;
+  right: 100%;
+  top: 0;
+  bottom: 0;
+  width: var(--space-8);
+  background: linear-gradient(to right,
+    transparent, color-mix(in srgb, var(--color-bg) 94%, transparent));
+  pointer-events: none;
+}
 
 /* ---------- intestazione della giornata ---------- */
 
