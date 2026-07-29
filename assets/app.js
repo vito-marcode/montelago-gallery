@@ -635,6 +635,8 @@ function openSharePanel(photo) {
   dom.shareLinks.textContent = '';
   for (const target of SHARE_TARGETS) {
     const link = document.createElement('a');
+    /* Pulsanti del design system, non link nudi */
+    link.className = 'btn btn-secondary';
     link.href = target.url(url, testo);
     link.textContent = target.nome;
     /* Si apre in una scheda nuova: la condivisione la conferma l'utente

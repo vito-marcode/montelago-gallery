@@ -5,10 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Galleria foto</title>
 <meta name="description" content="Galleria di foto ospitate su un bucket S3 pubblico.">
-<meta name="color-scheme" content="dark light">
-<meta name="theme-color" content="#111318">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#161826">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🖼️</text></svg>">
 <link rel="preconnect" href="https://wsrv.nl" crossorigin>
+<!-- Il design system va prima: questo foglio ne consuma i token -->
+<link rel="stylesheet" href="assets/nocturne.css">
 <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
@@ -30,20 +32,20 @@
   </symbol>
 </svg>
 
-<header class="topbar">
+<header class="topbar nav">
   <div class="topbar-main">
-    <h1 id="title">Galleria foto</h1>
-    <p class="meta" id="meta">Caricamento…</p>
+    <h1 id="title" class="nav-brand">Galleria foto</h1>
+    <p class="meta text-muted" id="meta">Caricamento…</p>
   </div>
 
-  <form id="change-panel" class="change-panel" hidden>
+  <form id="change-panel" class="change-panel field" hidden>
     <label for="bucket-input">URL della cartella nel bucket S3</label>
     <div class="change-row">
-      <input type="url" id="bucket-input" name="bucket-url" required spellcheck="false"
+      <input type="url" class="input" id="bucket-input" name="bucket-url" required spellcheck="false"
              placeholder="https://s3.example.com/mio-bucket/foto/">
       <button type="submit" class="btn btn-primary">Apri</button>
     </div>
-    <p class="hint">Il sito accetta anche il parametro nell'indirizzo: <code>?bucket-url=…</code></p>
+    <p class="hint text-muted">Il sito accetta anche il parametro nell'indirizzo: <code>?bucket-url=…</code></p>
   </form>
 </header>
 
@@ -59,8 +61,8 @@
     <span id="status-text">Lettura dell'elenco dei file…</span>
   </div>
 
-  <div id="error" class="error" hidden>
-    <h2 id="error-title">Impossibile leggere il bucket</h2>
+  <div id="error" class="card error" hidden>
+    <h2 class="card-title" id="error-title">Impossibile leggere il bucket</h2>
     <p id="error-text"></p>
     <ul id="error-hints"></ul>
   </div>
@@ -70,24 +72,24 @@
 
 <footer class="footer">
   <p id="footer-source"></p>
-  <p class="hint">Le anteprime sono generate dal servizio pubblico <a href="https://wsrv.nl" rel="noopener">wsrv.nl</a>. Il pulsante Scarica usa sempre i file originali del bucket.</p>
+  <p>Le anteprime sono generate dal servizio pubblico <a href="https://wsrv.nl" rel="noopener">wsrv.nl</a>. Il pulsante Scarica usa sempre i file originali del bucket.</p>
 </footer>
 
 <div id="selbar" class="selbar" role="region" aria-label="Foto selezionate">
   <strong id="sel-count">Nessuna foto selezionata</strong>
   <span class="sel-hint" id="sel-hint">Tieni premuto su una foto per selezionarla · Maiusc per un intervallo</span>
   <span class="lb-spacer"></span>
-  <button type="button" class="btn" id="sel-all">Seleziona tutte</button>
-  <button type="button" class="btn btn-primary btn-icon" id="sel-download" disabled>
+  <button type="button" class="btn btn-secondary" id="sel-all">Seleziona tutte</button>
+  <button type="button" class="btn btn-primary" id="sel-download" disabled>
     <svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>
     <span id="sel-download-text">Scarica</span>
   </button>
-  <button type="button" class="btn" id="sel-cancel">Annulla</button>
+  <button type="button" class="btn btn-secondary" id="sel-cancel">Annulla</button>
 
   <div class="sel-progress" id="sel-progress" hidden>
     <div class="sel-track"><div class="sel-fill" id="sel-fill"></div></div>
     <span id="sel-progress-text"></span>
-    <button type="button" class="btn" id="sel-abort">Interrompi</button>
+    <button type="button" class="btn btn-secondary" id="sel-abort">Interrompi</button>
   </div>
 </div>
 
@@ -96,22 +98,22 @@
     <span class="lb-counter" id="lb-counter"></span>
     <span class="lb-name" id="lb-name"></span>
     <span class="lb-spacer"></span>
-    <button type="button" class="lb-btn btn-icon" id="lb-share" title="Condividi questa foto">
+    <button type="button" class="btn btn-secondary" id="lb-share" title="Condividi questa foto">
       <svg class="icon" aria-hidden="true"><use href="#i-share"/></svg>
       <span>Condividi</span>
     </button>
-    <a class="lb-btn btn-icon" id="lb-download" download title="Scarica l'originale">
+    <a class="btn btn-secondary" id="lb-download" download title="Scarica l'originale">
       <svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>
       <span id="lb-download-text">Scarica</span>
     </a>
-    <button type="button" class="lb-btn" id="lb-close" aria-label="Chiudi (Esc)">✕</button>
+    <button type="button" class="btn btn-secondary btn-icon" id="lb-close" aria-label="Chiudi (Esc)">✕</button>
   </div>
 
-  <div class="share-panel" id="share-panel" hidden role="dialog" aria-label="Condividi">
-    <p class="share-title">Condividi questa foto</p>
+  <div class="dialog share-panel" id="share-panel" hidden role="dialog" aria-label="Condividi">
+    <p class="dialog-title share-title">Condividi questa foto</p>
     <div class="share-links" id="share-links"></div>
-    <button type="button" class="btn" id="share-copy">Copia link</button>
-    <button type="button" class="btn" id="share-close">Chiudi</button>
+    <button type="button" class="btn btn-primary" id="share-copy">Copia link</button>
+    <button type="button" class="btn btn-secondary" id="share-close">Chiudi</button>
   </div>
 
   <div class="lb-stage" id="lb-stage">
