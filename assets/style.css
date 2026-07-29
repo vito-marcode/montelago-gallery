@@ -599,16 +599,23 @@ main {
 .lb-bar {
   display: flex;
   align-items: center;
-  gap: var(--space-4);
+  gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
   font-size: 14px;
-  background: color-mix(in srgb, var(--color-neutral-900) 45%, transparent);
+  /* Scrim sfumato: la barra sta sopra la foto, e su uno scatto chiaro
+     contatore e nome file sarebbero altrimenti illeggibili */
+  background: linear-gradient(to bottom,
+    var(--scrim),
+    color-mix(in srgb, var(--color-neutral-900) 32%, transparent) 62%,
+    transparent);
 }
 
 .lb-counter {
-  font-variant-numeric: tabular-nums;
-  color: var(--muted);
   flex: none;
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-neutral-100);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, .75);
 }
 
 .lb-name {
@@ -616,11 +623,57 @@ main {
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
+  color: color-mix(in srgb, var(--color-neutral-100) 75%, transparent);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, .75);
 }
 
 .lb-spacer { flex: 1; }
 
-.lb-bar .btn { flex: none; }
+/* Azioni della barra: pastiglie tonde da 48px, la misura piena comoda da
+   toccare. L'icona è neutra e non accento: sopra una foto qualsiasi il viola
+   del sistema non si legge, quindi qui si devia di proposito. */
+.lb-act,
+.lb-pill {
+  flex: none;
+  height: 48px;
+  color: var(--color-neutral-100);
+  background: color-mix(in srgb, var(--color-neutral-900) 55%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-neutral-100) 20%, transparent);
+  backdrop-filter: blur(6px);
+  cursor: pointer;
+}
+
+.lb-act {
+  width: 48px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 17px;
+  line-height: 1;
+}
+
+.lb-act:hover,
+.lb-pill:hover { background: color-mix(in srgb, var(--color-neutral-900) 78%, transparent); }
+
+.lb-act .icon,
+.lb-pill .icon { width: 20px; height: 20px; }
+
+/* Scarica resta una pastiglia allungata: solo icona su schermo stretto */
+.lb-pill {
+  width: 48px;
+  padding: 0;
+  border-radius: 999px;
+  gap: var(--space-3);
+  text-decoration: none;
+}
+
+@media (min-width: 560px) {
+  .lb-pill {
+    width: auto;
+    padding: 0 var(--space-6);
+  }
+}
 
 /* Cuore acceso quando la foto è tra i preferiti */
 #lb-fav.is-on { color: var(--color-accent-300); }
@@ -987,7 +1040,6 @@ main {
     left: 0;
     right: 0;
     z-index: 3;
-    background: linear-gradient(to bottom, var(--scrim), transparent);
     padding-top: calc(var(--space-3) + env(safe-area-inset-top, 0px));
     padding-bottom: var(--space-8);
   }
@@ -1015,14 +1067,13 @@ main {
 
 /* Sotto questa soglia il nome del file non ci sta accanto ai pulsanti */
 @media (max-width: 560px) {
-  .lb-name { display: none; }
   .nota-lunga { display: none; }
   .nota-breve { display: inline; }
 }
 
-/* Ancora più stretto: solo icone, altrimenti la barra sborda.
-   Il testo resta leggibile dagli screen reader, non è display:none. */
-@media (max-width: 430px) {
+/* Sotto questa soglia Scarica è solo icona: il testo resta leggibile dagli
+   screen reader, non è display:none. */
+@media (max-width: 559px) {
   #lb-download span {
     position: absolute;
     width: 1px;
