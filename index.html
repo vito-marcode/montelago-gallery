@@ -79,7 +79,16 @@
   </form>
 </header>
 
-<nav class="daybar" id="daybar" aria-label="Filtra per giorno" hidden></nav>
+<nav class="daybar" id="daybar" aria-label="Filtra per giorno" hidden>
+  <!-- Solo i giorni scorrono, e vengono tagliati qui dentro -->
+  <div class="daybar-scroll" id="daybar-scroll"></div>
+
+  <!-- Il cuore sta fuori dallo scorrimento: nessun giorno può finirgli oltre -->
+  <button type="button" class="btn btn-ghost chip chip-fav" id="fav-filter" aria-pressed="false">
+    <svg class="icon" aria-hidden="true"><use href="#i-heart"/></svg>
+    <span class="chip-n" id="fav-count">0</span>
+  </button>
+</nav>
 
 <main>
   <div id="welcome" class="welcome" hidden>

@@ -43,6 +43,9 @@ const dom = {
   heroPhoto: el('hero-photo'),
   heroActions: el('hero-actions'),
   daybar: el('daybar'),
+  daybarScroll: el('daybar-scroll'),
+  favFilter: el('fav-filter'),
+  favCount: el('fav-count'),
   downloadAll: el('download-all'),
   shareGallery: el('share-gallery'),
   selectBtn: el('select-btn'),
@@ -586,7 +589,7 @@ function renderDaybar() {
   dom.daybar.hidden = !utile;
   if (!utile) return;
 
-  dom.daybar.textContent = '';
+  dom.daybarScroll.textContent = '';
   const voci = [{ chiave: null, etichetta: 'Tutte', count: state.photos.length }, ...state.giorni.map((g) => ({
     chiave: g.chiave,
     etichetta: etichettaGiorno(g.iso, false),
@@ -607,40 +610,23 @@ function renderDaybar() {
     chip.append(n);
 
     chip.addEventListener('click', () => applicaFiltro(voce.chiave));
-    dom.daybar.append(chip);
+    dom.daybarScroll.append(chip);
   }
 
-  /* Il cuore sta all'altro capo: mostra quanti preferiti e li isola */
-  const spazio = document.createElement('span');
-  spazio.className = 'daybar-spacer';
-  dom.daybar.append(spazio);
-
+  /* Il cuore è già nel documento: qui si aggiorna solo il suo stato */
   const attivi = state.filtro === FILTRO_PREFERITI;
-  const cuore = document.createElement('button');
-  cuore.type = 'button';
-  cuore.className = `btn chip chip-fav ${attivi ? 'btn-primary' : 'btn-ghost'}`;
-  cuore.setAttribute('aria-pressed', String(attivi));
-  cuore.setAttribute('aria-label', `Mostra solo i preferiti (${state.favorites.size})`);
-  cuore.innerHTML = '';
-
-  const icona = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  icona.setAttribute('class', 'icon');
-  icona.setAttribute('aria-hidden', 'true');
-  const uso = document.createElementNS('http://www.w3.org/2000/svg', 'use');
-  uso.setAttribute('href', state.favorites.size ? '#i-heart-fill' : '#i-heart');
-  icona.append(uso);
-  cuore.append(icona);
-
-  const n = document.createElement('span');
-  n.className = 'chip-n';
-  n.textContent = String(state.favorites.size);
-  cuore.append(n);
-
-  cuore.addEventListener('click', () => {
-    applicaFiltro(state.filtro === FILTRO_PREFERITI ? null : FILTRO_PREFERITI);
-  });
-  dom.daybar.append(cuore);
+  dom.favFilter.classList.toggle('btn-primary', attivi);
+  dom.favFilter.classList.toggle('btn-ghost', !attivi);
+  dom.favFilter.setAttribute('aria-pressed', String(attivi));
+  dom.favFilter.setAttribute('aria-label', `Mostra solo i preferiti (${state.favorites.size})`);
+  dom.favCount.textContent = String(state.favorites.size);
+  dom.favFilter.querySelector('use')
+    ?.setAttribute('href', state.favorites.size ? '#i-heart-fill' : '#i-heart');
 }
+
+dom.favFilter.addEventListener('click', () => {
+  applicaFiltro(state.filtro === FILTRO_PREFERITI ? null : FILTRO_PREFERITI);
+});
 
 /* ---------------------------------------------------------------- griglia */
 
