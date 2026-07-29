@@ -1067,10 +1067,23 @@ const ingrandita = () => zoom.scale > 1.001;
    di composizione proprio (fluido ma a risoluzione fissa); appena finisce il
    livello cade e il browser ridisegna alla scala giusta, quindi nitido. */
 let fineGesto = 0;
+/* L'originale può finire di caricare a metà pizzico: montarlo lì vorrebbe
+   dire far comporre alla GPU un bitmap enorme mentre il livello è già in
+   movimento, il momento in cui Safari mostra la scacchiera. Resta in attesa
+   qui e si monta da solo non appena il gesto torna a riposo. */
+let montaggioInSospeso = null;
+
 function segnalaGesto() {
   dom.lbZoom.classList.add('gesto');
   clearTimeout(fineGesto);
-  fineGesto = setTimeout(() => dom.lbZoom.classList.remove('gesto'), 300);
+  fineGesto = setTimeout(() => {
+    dom.lbZoom.classList.remove('gesto');
+    if (montaggioInSospeso) {
+      const monta = montaggioInSospeso;
+      montaggioInSospeso = null;
+      monta();
+    }
+  }, 300);
 }
 
 function applicaZoom() {
@@ -1141,6 +1154,7 @@ function azzeraZoom() {
   zoom.x = 0;
   zoom.y = 0;
   hiresChiesta = false;
+  montaggioInSospeso = null;
   if (zoomFrame) { cancelAnimationFrame(zoomFrame); zoomFrame = 0; }
   dom.lbZoom.classList.remove('animato', 'gesto');
   clearTimeout(fineGesto);
@@ -1161,16 +1175,31 @@ function azzeraZoom() {
    un file intero: su rete mobile ci mette secondi e nel frattempo si
    guarderebbe l'anteprima sfocata. Il gradino intermedio pesa una frazione
    e arriva quasi subito; l'originale gli si sovrappone quando è pronto.
-   Nessuno dei due lascia buchi: entrano sopra ciò che è già opaco. */
-function caricaGradino(sorgente, elemento, classe, allArrivo) {
+   Nessuno dei due lascia buchi: entrano sopra ciò che è già opaco.
+   attendiRiposo rimanda il montaggio a fine gesto: serve solo per
+   l'originale, che su una foto da telefono può pesare diversi megapixel e
+   non deve mai comporsi alla GPU mentre il livello è ancora in movimento. */
+function caricaGradino(sorgente, elemento, classe, { allArrivo, attendiRiposo } = {}) {
   const token = state.renderToken;
   const img = new Image();
-  img.addEventListener('load', () => {
-    /* Se nel frattempo si è cambiata foto, questo risultato non serve più */
+  img.addEventListener('load', async () => {
     if (token !== state.renderToken) return;
-    elemento.src = img.src;
-    dom.lb.classList.add(classe);
-    if (allArrivo) allArrivo();
+    /* Decodifica il bitmap fuori dal DOM: il lavoro pesante avviene prima
+       che l'elemento sia montato e trasformato, non insieme */
+    try { await img.decode(); } catch { /* si monta comunque: decode() è solo un'ottimizzazione */ }
+    if (token !== state.renderToken) return;
+
+    const monta = () => {
+      elemento.src = img.src;
+      dom.lb.classList.add(classe);
+      if (allArrivo) allArrivo();
+    };
+
+    if (attendiRiposo && dom.lbZoom.classList.contains('gesto')) {
+      montaggioInSospeso = monta;
+    } else {
+      monta();
+    }
   });
   img.src = sorgente;
   return img;
@@ -1183,8 +1212,10 @@ function caricaHires() {
 
   caricaGradino(proxied(photo, MID_WIDTH), dom.lbMid, 'mid');
 
-  const originale = caricaGradino(objectUrl(photo), dom.lbHires, 'hires',
-    () => impostaNota('originale a piena risoluzione', 'originale'));
+  const originale = caricaGradino(objectUrl(photo), dom.lbHires, 'hires', {
+    attendiRiposo: true,
+    allArrivo: () => impostaNota('originale a piena risoluzione', 'originale'),
+  });
   /* Se l'originale non arriva resta il gradino intermedio: si può ritentare */
   originale.addEventListener('error', () => { hiresChiesta = false; });
 }
@@ -1614,14 +1645,14 @@ dom.lbImg.addEventListener('transitionend', (e) => {
   }
 });
 
-/* Quando l'originale è del tutto opaco, i gradini sotto sono solo memoria
-   occupata: si smette di dipingerli e si liberano le loro bitmap. Copre lo
-   stesso riquadro, quindi non si vede nulla cambiare. */
+/* Quando l'originale è del tutto opaco, miniatura e anteprima sotto sono
+   solo memoria occupata: si liberano le loro bitmap. Il gradino medio resta
+   invece caricato — serve da riparo ogni volta che il gesto riprende, non
+   solo alla prima dissolvenza — quindi qui non si tocca. */
 dom.lbHires.addEventListener('transitionend', (e) => {
   if (e.propertyName !== 'opacity' || !dom.lb.classList.contains('hires')) return;
   dom.lb.classList.add('solo-alta');
   dom.lbPlaceholder.removeAttribute('src');
-  dom.lbMid.removeAttribute('src');
 });
 
 dom.lbPlaceholder.addEventListener('load', () => {

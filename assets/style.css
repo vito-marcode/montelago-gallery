@@ -944,13 +944,19 @@ main {
 .lightbox.mid #lb-mid { opacity: 1; }
 .lightbox.hires #lb-hires { opacity: 1; }
 
-/* A dissolvenza conclusa i gradini sotto non servono più: restando dipinti
-   costringerebbero il browser a tenere decodificate quattro copie della
-   stessa foto (miniatura, 1600, 2400 e originale: quasi 90 MB di bitmap).
-   Su un telefono è ciò che spinge Chrome a ridurre la risoluzione. */
+/* Se il gesto riparte a originale già montato (un trascinamento dopo il
+   primo zoom), l'originale torna invisibile per tutta la sua durata: sotto
+   resta il gradino medio, già pronto. Senza questo, ogni ripresa del gesto
+   ripromuoverebbe alla GPU lo stesso bitmap enorme — la stessa scacchiera
+   di quando si monta per la prima volta durante il gesto, solo più tardi. */
+.lb-zoom.gesto #lb-hires { opacity: 0; }
+
+/* A dissolvenza conclusa la miniatura e l'anteprima sotto non servono più.
+   Il gradino medio invece resta (src compreso): è il livello che regge la
+   foto durante ogni futura ripresa del gesto, quando l'originale si nasconde
+   di nuovo per la regola sopra. */
 .lightbox.solo-alta #lb-placeholder,
-.lightbox.solo-alta #lb-img,
-.lightbox.solo-alta #lb-mid { display: none; }
+.lightbox.solo-alta #lb-img { display: none; }
 
 /* Miniatura della griglia mostrata ingrandita: resta opaca sotto la foto
    grande e viene rimossa solo a dissolvenza conclusa */
