@@ -37,6 +37,10 @@
           stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
     <circle cx="12" cy="12" r="9"/><path d="m8 12 2.6 2.6L16 9.4"/>
   </symbol>
+  <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M6 6 18 18"/><path d="M18 6 6 18"/>
+  </symbol>
 </svg>
 
 <header class="hero" id="hero">
@@ -47,31 +51,33 @@
        mix-blend-mode della foto, va disegnato dopo di essa. -->
   <div class="hero-scrim" aria-hidden="true"></div>
 
-  <div class="hero-body">
-    <h1 class="hero-title" id="title">Galleria foto</h1>
-    <p class="hero-meta" id="meta">Caricamento…</p>
+  <div class="hero-inner">
+    <div class="hero-body">
+      <h1 class="hero-title" id="title">Galleria foto</h1>
+      <p class="hero-meta" id="meta">Caricamento…</p>
 
-    <div class="hero-actions" id="hero-actions" hidden>
-      <button type="button" class="btn btn-primary" id="download-all">
-        <svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>
-        <span>Scarica tutto</span>
-      </button>
-      <button type="button" class="btn btn-ghost" id="select-btn">
-        <svg class="icon" aria-hidden="true"><use href="#i-check-circle"/></svg>
-        <span>Seleziona</span>
-      </button>
+      <div class="hero-actions" id="hero-actions" hidden>
+        <button type="button" class="btn btn-primary" id="download-all">
+          <svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>
+          <span>Scarica tutto</span>
+        </button>
+        <button type="button" class="btn btn-ghost" id="select-btn" aria-pressed="false">
+          <svg class="icon" aria-hidden="true"><use href="#i-check-circle"/></svg>
+          <span>Seleziona</span>
+        </button>
+      </div>
     </div>
+
+    <form id="change-panel" class="change-panel field" hidden>
+      <label for="bucket-input">URL della cartella nel bucket S3</label>
+      <div class="change-row">
+        <input type="url" class="input" id="bucket-input" name="bucket-url" required spellcheck="false"
+               placeholder="https://s3.example.com/mio-bucket/foto/">
+        <button type="submit" class="btn btn-primary">Apri</button>
+      </div>
+      <p class="hint text-muted">Il sito accetta anche il parametro nell'indirizzo: <code>?bucket-url=…</code></p>
+    </form>
   </div>
-
-  <form id="change-panel" class="change-panel field" hidden>
-    <label for="bucket-input">URL della cartella nel bucket S3</label>
-    <div class="change-row">
-      <input type="url" class="input" id="bucket-input" name="bucket-url" required spellcheck="false"
-             placeholder="https://s3.example.com/mio-bucket/foto/">
-      <button type="submit" class="btn btn-primary">Apri</button>
-    </div>
-    <p class="hint text-muted">Il sito accetta anche il parametro nell'indirizzo: <code>?bucket-url=…</code></p>
-  </form>
 </header>
 
 <nav class="daybar" id="daybar" aria-label="Filtra per giorno" hidden>
@@ -112,25 +118,25 @@
 </footer>
 
 <div id="selbar" class="selbar" role="region" aria-label="Foto selezionate">
-  <div class="sel-info">
-    <strong id="sel-count">Nessuna foto selezionata</strong>
-    <span class="sel-status" id="sel-progress-text"></span>
-  </div>
+  <div class="selbar-inner">
+    <div class="sel-info">
+      <strong id="sel-count">Nessuna foto selezionata</strong>
+      <span class="sel-status" id="sel-progress-text"></span>
+    </div>
 
-  <div class="sel-side">
-    <button type="button" class="btn btn-ghost" id="sel-cancel">Annulla</button>
-    <button type="button" class="btn btn-secondary" id="sel-all">Seleziona tutte</button>
-  </div>
+    <button type="button" class="btn btn-secondary sel-all" id="sel-all">Seleziona tutte</button>
+    <button type="button" class="btn btn-ghost sel-close" id="sel-cancel" aria-label="Annulla selezione">✕</button>
 
-  <div class="sel-progress" id="sel-progress" hidden>
-    <div class="sel-track"><div class="sel-fill" id="sel-fill"></div></div>
-    <button type="button" class="btn btn-secondary" id="sel-abort">Interrompi</button>
-  </div>
+    <div class="sel-progress" id="sel-progress" hidden>
+      <div class="sel-track"><div class="sel-fill" id="sel-fill"></div></div>
+      <button type="button" class="btn btn-secondary" id="sel-abort">Interrompi</button>
+    </div>
 
-  <button type="button" class="btn btn-primary btn-block" id="sel-download" disabled>
-    <svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>
-    <span id="sel-download-text">Scarica</span>
-  </button>
+    <button type="button" class="btn btn-primary btn-block" id="sel-download" disabled>
+      <svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>
+      <span id="sel-download-text">Scarica</span>
+    </button>
+  </div>
 </div>
 
 <div id="lightbox" class="lightbox" hidden role="dialog" aria-modal="true" aria-label="Foto ingrandita">

@@ -10,6 +10,9 @@
   --muted: color-mix(in srgb, var(--color-text) 55%, transparent);
   --scrim: color-mix(in srgb, var(--color-neutral-900) 78%, transparent);
   --maxw: 1600px;
+  /* Colonna più stretta per i contenuti che non sono la griglia: il
+     dentro della copertina e la barra di selezione */
+  --maxinnerw: 1200px;
 
   /* Dove il velo della copertina si chiude in basso: è l'unica cosa della
      copertina che segue il tema, perché è il fondo della pagina. */
@@ -60,6 +63,13 @@ body {
   --color-accent-800: #423a6a;
   --color-accent-900: #2b2741;
   --shadow-lg: 0 0 0 1px #9397ab, 0 16px 40px rgba(0, 0, 0, .65);
+  /* --muted e --scrim vanno ridichiarati qui: sono alias con un var()
+     annidato, e quello si risolve con la ramp di dove l'alias è dichiarato
+     (:root, quindi il tema di pagina), non con quella di qui dove viene
+     usato. Senza ridichiararli, sul tema chiaro restano scuri anziché
+     seguire il ripinning sopra. */
+  --muted: color-mix(in srgb, var(--color-text) 55%, transparent);
+  --scrim: color-mix(in srgb, var(--color-neutral-900) 78%, transparent);
   color: var(--color-text);
 }
 
@@ -87,8 +97,18 @@ code {
   display: flex;
   flex-direction: column;
   isolation: isolate;
-  padding: clamp(var(--space-8), 7vw, 88px) clamp(var(--space-4), 5vw, 64px) var(--space-8);
+  padding: clamp(var(--space-8), 7vw, 88px) 0 var(--space-8);
   overflow: hidden;
+}
+
+/* La foto e il velo restano a piena larghezza (sono figli assoluti, fuori
+   da qui); solo il testo e il pannello si fermano alla colonna stretta,
+   centrata quando lo schermo supera --maxinnerw. */
+.hero-inner {
+  width: 100%;
+  max-width: var(--maxw);
+  margin: 0 auto;
+  padding: 0 clamp(var(--space-4), 5vw, 64px);
 }
 
 /* La foto di copertina si fonde col fondo: mix-blend-mode: lighten fa cadere
@@ -167,6 +187,10 @@ code {
   padding: var(--space-4) var(--space-6);
   font-size: 15px;
 }
+
+/* Attivo: stessa tinta degli altri stati "acceso" sopra una foto, a dire
+   che ripremuto si esce dalla selezione invece di rientrarci */
+#select-btn.is-on { color: var(--su-foto-accento); }
 
 /* ---------- filtri per giorno ---------- */
 
@@ -290,12 +314,10 @@ code {
   right: 0;
   bottom: 0;
   z-index: 30;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2) var(--space-4);
-  padding: var(--space-4) clamp(var(--space-4), 3vw, var(--space-8));
-  padding-bottom: calc(var(--space-4) + env(safe-area-inset-bottom, 0px));
+  /* Stessa colonna laterale di main/copertina, non la clamp più stretta
+     di prima; il fondo ha più aria del resto perché sotto non c'è altro */
+  padding: var(--space-4) clamp(var(--space-4), 5vw, 64px) var(--space-6);
+  padding-bottom: calc(var(--space-6) + env(safe-area-inset-bottom, 0px));
   font-size: 14px;
   background: color-mix(in srgb, var(--color-surface) 92%, transparent);
   backdrop-filter: blur(12px);
@@ -304,6 +326,18 @@ code {
   visibility: hidden;
   transform: translateY(100%);
   transition: transform .22s ease, visibility .22s;
+}
+
+/* Righe e pulsanti restano quelli di sempre; solo su schermi larghi la
+   riga si ferma alla larghezza del contenuto, come main e il piede */
+.selbar-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  width: 100%;
+  max-width: var(--maxinnerw);
+  margin: 0 auto;
 }
 
 .selbar.open {
@@ -336,18 +370,31 @@ code {
     background-size: 40px 4px;
   }
 
-  /* Conteggio su una riga, le due secondarie sulla successiva, il download
-     a larghezza piena in fondo: sotto il pollice */
-  .sel-info { flex: 1 0 100%; }
-
-  .sel-side {
-    flex: 1 0 100%;
-    justify-content: flex-end;
+  /* Griglia invece di righe in coda: la X deve restare in alto a destra,
+     in linea col conteggio, non scendere sotto "Seleziona tutte" */
+  .selbar-inner {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    column-gap: var(--space-3);
+    row-gap: var(--space-3);
   }
 
-  #sel-download { padding-block: var(--space-4); }
+  .sel-info { grid-column: 1; grid-row: 1; }
 
-  .sel-progress { flex-wrap: wrap; }
+  /* Sopra tutto e ancorata in alto: si allinea al conteggio, non al centro
+     delle due righe di .sel-info */
+  .sel-close {
+    grid-column: 2;
+    grid-row: 1;
+    align-self: start;
+    justify-self: end;
+  }
+
+  .sel-all { grid-column: 1 / -1; grid-row: 2; justify-self: end; }
+
+  #sel-download { grid-column: 1 / -1; padding-block: var(--space-4); }
+
+  .sel-progress { grid-column: 1 / -1; flex-wrap: wrap; }
 }
 
 /* Conteggio e stato a sinistra, le due azioni secondarie a destra, il
@@ -368,10 +415,15 @@ code {
   overflow-wrap: anywhere;
 }
 
-.sel-side {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
+/* X grande: sostituisce il testo "Annulla", stessa capsula tonda delle
+   azioni del visore ma sulla superficie della pagina, non su una foto */
+.sel-close {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 20px;
+  line-height: 1;
 }
 
 .sel-progress {
@@ -382,6 +434,10 @@ code {
   color: var(--muted);
   font-size: 12px;
 }
+
+/* Il download è l'azione che chiude il pannello: il doppio dell'altezza
+   di un .btn normale (~30px) lo rende il bersaglio più facile da toccare */
+#sel-download { min-height: 60px; }
 
 .sel-track {
   flex: 1;

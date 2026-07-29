@@ -778,14 +778,14 @@ function updateSelectionUi() {
   dom.grid.classList.toggle('selecting', state.selecting);
 
   dom.selCount.textContent = chosen.length
-    ? `${chosen.length} ${chosen.length === 1 ? 'foto' : 'foto'} · ${humanBytes(bytes)}`
+    ? `${chosen.length} ${chosen.length === 1 ? 'foto selezionata' : 'foto selezionate'}`
     : 'Nessuna foto selezionata';
   dom.selDownload.disabled = !chosen.length || state.downloading;
   dom.selDownloadText.textContent = chosen.length ? `Scarica (${chosen.length})` : 'Scarica';
   /* Riga di stato: durante il download la riscrive showProgress */
   if (!state.downloading) {
     dom.selProgressText.textContent = chosen.length
-      ? 'Pronte per il download'
+      ? humanBytes(bytes)
       : 'Tocca il segno di spunta su una foto, o tienila premuta';
   }
   dom.selAll.textContent = chosen.length === state.shown.length ? 'Deseleziona tutte' : 'Seleziona tutte';
@@ -809,6 +809,12 @@ function setSelecting(on) {
     for (const tile of allTiles()) tile.classList.remove('selected');
   }
   for (const tile of allTiles()) syncTileLabel(tile, state.shown[Number(tile.dataset.i)]);
+  /* Da premuto, il pulsante deve leggersi come l'uscita dalla selezione,
+     non come un secondo ingresso */
+  dom.selectBtn.classList.toggle('is-on', on);
+  dom.selectBtn.setAttribute('aria-pressed', String(on));
+  dom.selectBtn.querySelector('use').setAttribute('href', on ? '#i-x' : '#i-check-circle');
+  dom.selectBtn.querySelector('span').textContent = on ? 'Annulla' : 'Seleziona';
   updateSelectionUi();
 }
 
