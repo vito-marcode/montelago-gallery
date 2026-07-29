@@ -12,7 +12,7 @@
   --maxw: 1600px;
   /* Colonna più stretta per i contenuti che non sono la griglia: il
      dentro della copertina e la barra di selezione */
-  --maxinnerw: 1200px;
+  --maxinnerw: 560px;
 
   /* Dove il velo della copertina si chiude in basso: è l'unica cosa della
      copertina che segue il tema, perché è il fondo della pagina. */
