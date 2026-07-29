@@ -746,9 +746,15 @@ main {
   grid-template: 100% / 100%;
   place-items: center;
   transform-origin: center center;
-  /* Tiene la foto su un livello di composizione proprio: il gesto resta fluido */
-  will-change: transform;
 }
+
+/* will-change solo mentre le dita si muovono. Se resta sempre, Chrome fissa
+   la scala di rasterizzazione e poi ingrandisce la texture invece di
+   ridisegnare: la foto si vede nitida un attimo e poi sgranata, e su Android
+   accade sempre perché il limite di texture della GPU è più basso.
+   A gesto finito la classe cade, il livello viene ridisegnato alla scala
+   giusta e la foto torna nitida. */
+.lb-zoom.gesto { will-change: transform; }
 
 /* Solo per il doppio tocco e il ritorno a scala 1: durante il gesto la
    trasformazione segue le dita senza interpolazione */
@@ -819,6 +825,14 @@ main {
 
 .lightbox.mid #lb-mid { opacity: 1; }
 .lightbox.hires #lb-hires { opacity: 1; }
+
+/* A dissolvenza conclusa i gradini sotto non servono più: restando dipinti
+   costringerebbero il browser a tenere decodificate quattro copie della
+   stessa foto (miniatura, 1600, 2400 e originale: quasi 90 MB di bitmap).
+   Su un telefono è ciò che spinge Chrome a ridurre la risoluzione. */
+.lightbox.solo-alta #lb-placeholder,
+.lightbox.solo-alta #lb-img,
+.lightbox.solo-alta #lb-mid { display: none; }
 
 /* Miniatura della griglia mostrata ingrandita: resta opaca sotto la foto
    grande e viene rimossa solo a dissolvenza conclusa */

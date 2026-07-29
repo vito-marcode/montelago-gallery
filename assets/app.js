@@ -1126,12 +1126,26 @@ const ingrandita = () => zoom.scale > 1.001;
 
 /* Le trasformazioni si applicano una volta per fotogramma: più eventi di
    movimento nello stesso fotogramma non producono lavoro inutile */
+/* Segnala che un gesto è in corso. Durante il gesto la foto va su un livello
+   di composizione proprio (fluido ma a risoluzione fissa); appena finisce il
+   livello cade e il browser ridisegna alla scala giusta, quindi nitido. */
+let fineGesto = 0;
+function segnalaGesto() {
+  dom.lbZoom.classList.add('gesto');
+  clearTimeout(fineGesto);
+  fineGesto = setTimeout(() => dom.lbZoom.classList.remove('gesto'), 300);
+}
+
 function applicaZoom() {
   if (zoomFrame) return;
   zoomFrame = requestAnimationFrame(() => {
     zoomFrame = 0;
-    dom.lbZoom.style.transform =
-      `translate3d(${zoom.x.toFixed(2)}px, ${zoom.y.toFixed(2)}px, 0) scale(${zoom.scale.toFixed(4)})`;
+    const inGesto = dom.lbZoom.classList.contains('gesto');
+    /* translate3d solo in movimento: a riposo una trasformazione 2D non forza
+       la composizione, così il disegno avviene alla scala reale */
+    dom.lbZoom.style.transform = inGesto
+      ? `translate3d(${zoom.x.toFixed(2)}px, ${zoom.y.toFixed(2)}px, 0) scale(${zoom.scale.toFixed(4)})`
+      : `translate(${zoom.x.toFixed(2)}px, ${zoom.y.toFixed(2)}px) scale(${zoom.scale.toFixed(4)})`;
     dom.lb.classList.toggle('zoomed', ingrandita());
     /* Tiene allineata la barra dello zoom, da qualunque gesto arrivi */
     const percento = Math.round(zoom.scale * 100);
@@ -1163,6 +1177,7 @@ function limitaSpostamento() {
    attuale, il punto resta fermo con t' = p - k·(p − t), dove k è il rapporto
    fra la nuova scala e quella vecchia. */
 function zoomVerso(clientX, clientY, fattore) {
+  segnalaGesto();
   const box = dom.lbImgwrap.getBoundingClientRect();
   const px = clientX - (box.left + box.width / 2);
   const py = clientY - (box.top + box.height / 2);
@@ -1190,13 +1205,14 @@ function azzeraZoom() {
   zoom.y = 0;
   hiresChiesta = false;
   if (zoomFrame) { cancelAnimationFrame(zoomFrame); zoomFrame = 0; }
-  dom.lbZoom.classList.remove('animato');
-  dom.lbZoom.style.transform = 'translate3d(0, 0, 0) scale(1)';
+  dom.lbZoom.classList.remove('animato', 'gesto');
+  clearTimeout(fineGesto);
+  dom.lbZoom.style.transform = 'translate(0px, 0px) scale(1)';
   /* Anche i comandi tornano a 100%: qui si salta applicaZoom, che di solito
      è il punto in cui la barra si riallinea */
   dom.zoomVal.textContent = '100%';
   dom.zoomRange.value = '100';
-  dom.lb.classList.remove('zoomed', 'mid', 'hires');
+  dom.lb.classList.remove('zoomed', 'mid', 'hires', 'solo-alta');
   dom.lbHires.removeAttribute('src');
   dom.lbMid.removeAttribute('src');
   punti.clear();
@@ -1674,6 +1690,16 @@ dom.lbImg.addEventListener('transitionend', (e) => {
   }
 });
 
+/* Quando l'originale è del tutto opaco, i gradini sotto sono solo memoria
+   occupata: si smette di dipingerli e si liberano le loro bitmap. Copre lo
+   stesso riquadro, quindi non si vede nulla cambiare. */
+dom.lbHires.addEventListener('transitionend', (e) => {
+  if (e.propertyName !== 'opacity' || !dom.lb.classList.contains('hires')) return;
+  dom.lb.classList.add('solo-alta');
+  dom.lbPlaceholder.removeAttribute('src');
+  dom.lbMid.removeAttribute('src');
+});
+
 dom.lbPlaceholder.addEventListener('load', () => {
   if (!dom.lb.classList.contains('ready')) dom.lb.classList.add('lqip');
 });
@@ -1843,6 +1869,7 @@ dom.lbStage.addEventListener('pointermove', (e) => {
     zoom.x += e.clientX - trascinaPrec.x;
     zoom.y += e.clientY - trascinaPrec.y;
     trascinaPrec = { x: e.clientX, y: e.clientY };
+    segnalaGesto();
     limitaSpostamento();
     applicaZoom();
   }
