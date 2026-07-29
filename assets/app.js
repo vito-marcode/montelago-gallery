@@ -1171,6 +1171,17 @@ function azzeraZoom() {
   trascinaPrec = null;
 }
 
+/* Su Safari decode() può non risolversi mai per un'immagine da un'altra
+   origine, invece di limitarsi a rifiutare: senza un limite di tempo la
+   foto non verrebbe più montata, restando bloccata sul gradino sfocato. */
+function decodificaConLimite(img, ms = 600) {
+  return new Promise((resolve) => {
+    const fine = () => resolve();
+    const timer = setTimeout(fine, ms);
+    img.decode().then(() => { clearTimeout(timer); resolve(); }, () => { clearTimeout(timer); resolve(); });
+  });
+}
+
 /* Ingrandendo si sale di risoluzione in due gradini, perché l'originale è
    un file intero: su rete mobile ci mette secondi e nel frattempo si
    guarderebbe l'anteprima sfocata. Il gradino intermedio pesa una frazione
@@ -1185,8 +1196,9 @@ function caricaGradino(sorgente, elemento, classe, { allArrivo, attendiRiposo } 
   img.addEventListener('load', async () => {
     if (token !== state.renderToken) return;
     /* Decodifica il bitmap fuori dal DOM: il lavoro pesante avviene prima
-       che l'elemento sia montato e trasformato, non insieme */
-    try { await img.decode(); } catch { /* si monta comunque: decode() è solo un'ottimizzazione */ }
+       che l'elemento sia montato e trasformato, non insieme. Se non arriva
+       in tempo si monta comunque: decode() è solo un'ottimizzazione */
+    await decodificaConLimite(img);
     if (token !== state.renderToken) return;
 
     const monta = () => {
