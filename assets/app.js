@@ -110,6 +110,8 @@ const state = {
   renderToken: 0,
   /* Chiavi delle foto scelte: sopravvivono al riordino, gli indici no */
   selection: new Set(),
+  /* Preferiti: chiavi delle foto col cuore, salvate sul dispositivo */
+  favorites: new Set(),
   selecting: false,
   anchor: -1,
   downloading: false,
@@ -296,6 +298,46 @@ function sortPhotos() {
     if (field === 'size') return sign * (a.size - b.size);
     return sign * collator.compare(a.name, b.name);
   });
+}
+
+/* ---------------------------------------------------------- preferiti */
+
+/* Chiave di salvataggio legata alla cartella: due gallerie diverse non si
+   mescolano i preferiti */
+const FAV_STORE = () => `gallery:fav:${state.source?.objectBase || ''}/${state.source?.prefix || ''}`;
+/* Valore speciale del filtro: non è un giorno */
+const FILTRO_PREFERITI = ' preferiti';
+
+function caricaPreferiti() {
+  try {
+    const salvati = JSON.parse(localStorage.getItem(FAV_STORE()) || '[]');
+    if (Array.isArray(salvati)) state.favorites = new Set(salvati);
+  } catch { /* niente di salvato o spazio non disponibile */ }
+}
+
+function salvaPreferiti() {
+  try {
+    localStorage.setItem(FAV_STORE(), JSON.stringify([...state.favorites]));
+  } catch { /* spazio esaurito: i preferiti restano solo per questa visita */ }
+}
+
+function alternaPreferito(index) {
+  const photo = state.shown[index];
+  if (!photo) return;
+
+  if (state.favorites.has(photo.key)) state.favorites.delete(photo.key);
+  else state.favorites.add(photo.key);
+  salvaPreferiti();
+
+  const tile = tileAt(index);
+  if (tile) {
+    tile.classList.toggle('favorita', state.favorites.has(photo.key));
+    syncTileLabel(tile, photo);
+  }
+  renderDaybar();
+
+  /* Se si sta guardando solo i preferiti, quella tolta deve sparire */
+  if (state.filtro === FILTRO_PREFERITI) applicaFiltro(FILTRO_PREFERITI);
 }
 
 /* ------------------------------------------------------- date di scatto */
@@ -503,9 +545,13 @@ function impostaCopertina() {
 
 function applicaFiltro(chiave) {
   state.filtro = chiave;
-  state.shown = chiave
-    ? state.photos.filter((p) => chiaveGiorno(quando(p)) === chiave)
-    : state.photos;
+  if (chiave === FILTRO_PREFERITI) {
+    state.shown = state.photos.filter((p) => state.favorites.has(p.key));
+  } else if (chiave) {
+    state.shown = state.photos.filter((p) => chiaveGiorno(quando(p)) === chiave);
+  } else {
+    state.shown = state.photos;
+  }
   state.anchor = -1;
   renderDaybar();
   renderGrid();
@@ -541,6 +587,37 @@ function renderDaybar() {
     chip.addEventListener('click', () => applicaFiltro(voce.chiave));
     dom.daybar.append(chip);
   }
+
+  /* Il cuore sta all'altro capo: mostra quanti preferiti e li isola */
+  const spazio = document.createElement('span');
+  spazio.className = 'daybar-spacer';
+  dom.daybar.append(spazio);
+
+  const attivi = state.filtro === FILTRO_PREFERITI;
+  const cuore = document.createElement('button');
+  cuore.type = 'button';
+  cuore.className = `btn chip chip-fav ${attivi ? 'btn-primary' : 'btn-ghost'}`;
+  cuore.setAttribute('aria-pressed', String(attivi));
+  cuore.setAttribute('aria-label', `Mostra solo i preferiti (${state.favorites.size})`);
+  cuore.innerHTML = '';
+
+  const icona = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  icona.setAttribute('class', 'icon');
+  icona.setAttribute('aria-hidden', 'true');
+  const uso = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+  uso.setAttribute('href', state.favorites.size ? '#i-heart-fill' : '#i-heart');
+  icona.append(uso);
+  cuore.append(icona);
+
+  const n = document.createElement('span');
+  n.className = 'chip-n';
+  n.textContent = String(state.favorites.size);
+  cuore.append(n);
+
+  cuore.addEventListener('click', () => {
+    applicaFiltro(state.filtro === FILTRO_PREFERITI ? null : FILTRO_PREFERITI);
+  });
+  dom.daybar.append(cuore);
 }
 
 /* ---------------------------------------------------------------- griglia */
@@ -622,6 +699,21 @@ function renderGrid() {
     check.className = 'tile-check';
     tile.append(check);
 
+    const preferita = state.favorites.has(photo.key);
+    if (preferita) tile.classList.add('favorita');
+
+    const cuore = document.createElement('button');
+    cuore.type = 'button';
+    cuore.className = 'tile-fav';
+    const icona = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    icona.setAttribute('class', 'icon');
+    icona.setAttribute('aria-hidden', 'true');
+    const uso = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+    uso.setAttribute('href', preferita ? '#i-heart-fill' : '#i-heart');
+    icona.append(uso);
+    cuore.append(icona);
+    tile.append(cuore);
+
     const label = document.createElement('span');
     label.className = 'tile-label';
     label.textContent = photo.name;
@@ -647,6 +739,15 @@ function syncTileLabel(tile, photo) {
 
   check.setAttribute('aria-pressed', String(scelta));
   check.setAttribute('aria-label', azione);
+
+  const cuore = tile.querySelector('.tile-fav');
+  if (cuore) {
+    const preferita = state.favorites.has(photo.key);
+    cuore.setAttribute('aria-pressed', String(preferita));
+    cuore.setAttribute('aria-label',
+      `${preferita ? 'Togli dai preferiti' : 'Aggiungi ai preferiti'}: ${photo.name}`);
+    cuore.querySelector('use')?.setAttribute('href', preferita ? '#i-heart-fill' : '#i-heart');
+  }
 
   if (state.selecting) {
     apri.setAttribute('aria-pressed', String(scelta));
@@ -675,6 +776,12 @@ function updateSelectionUi() {
     : 'Nessuna foto selezionata';
   dom.selDownload.disabled = !chosen.length || state.downloading;
   dom.selDownloadText.textContent = chosen.length ? `Scarica (${chosen.length})` : 'Scarica';
+  /* Riga di stato: durante il download la riscrive showProgress */
+  if (!state.downloading) {
+    dom.selProgressText.textContent = chosen.length
+      ? 'Pronte per il download'
+      : 'Tocca il segno di spunta su una foto, o tienila premuta';
+  }
   dom.selAll.textContent = chosen.length === state.shown.length ? 'Deseleziona tutte' : 'Seleziona tutte';
   syncSelbarSpace();
 }
@@ -1291,6 +1398,7 @@ function finish() {
   dom.error.hidden = true;
   updateHeader();
   impostaCopertina();
+  caricaPreferiti();
   /* Nessun filtro all'avvio: mostra tutte e disegna la barra dei giorni */
   applicaFiltro(null);
 
@@ -1354,7 +1462,9 @@ dom.grid.addEventListener('click', (e) => {
   cancelPress();
   if (wasLongPress) return;
 
-  /* Il segno di spunta seleziona sempre, anche fuori dalla modalità selezione */
+  /* Il cuore e il segno di spunta agiscono sempre, anche fuori dalla
+     modalità selezione, e non aprono la foto */
+  if (e.target.closest('.tile-fav')) { alternaPreferito(index); return; }
   if (e.target.closest('.tile-check')) { enterSelectionWith(index); return; }
 
   if (e.shiftKey && state.selecting && state.anchor >= 0) selectRange(state.anchor, index);

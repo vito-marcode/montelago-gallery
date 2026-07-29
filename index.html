@@ -25,6 +25,13 @@
           stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
     <path d="m8.5 5 7 7-7 7"/>
   </symbol>
+  <symbol id="i-heart" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l8.84 8.84 8.84-8.84a5.5 5.5 0 0 0 0-7.78z"/>
+  </symbol>
+  <symbol id="i-heart-fill" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l8.84 8.84 8.84-8.84a5.5 5.5 0 0 0 0-7.78z"/>
+  </symbol>
   <symbol id="i-check-circle" viewBox="0 0 24 24" fill="none" stroke="currentColor"
           stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
     <circle cx="12" cy="12" r="9"/><path d="m8 12 2.6 2.6L16 9.4"/>
@@ -101,21 +108,25 @@
 </footer>
 
 <div id="selbar" class="selbar" role="region" aria-label="Foto selezionate">
-  <strong id="sel-count">Nessuna foto selezionata</strong>
-  <span class="sel-hint" id="sel-hint">Tieni premuto su una foto per selezionarla · Maiusc per un intervallo</span>
-  <span class="lb-spacer"></span>
-  <button type="button" class="btn btn-secondary" id="sel-all">Seleziona tutte</button>
-  <button type="button" class="btn btn-primary" id="sel-download" disabled>
-    <svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>
-    <span id="sel-download-text">Scarica</span>
-  </button>
-  <button type="button" class="btn btn-secondary" id="sel-cancel">Annulla</button>
+  <div class="sel-info">
+    <strong id="sel-count">Nessuna foto selezionata</strong>
+    <span class="sel-status" id="sel-progress-text"></span>
+  </div>
+
+  <div class="sel-side">
+    <button type="button" class="btn btn-ghost" id="sel-cancel">Annulla</button>
+    <button type="button" class="btn btn-secondary" id="sel-all">Seleziona tutte</button>
+  </div>
 
   <div class="sel-progress" id="sel-progress" hidden>
     <div class="sel-track"><div class="sel-fill" id="sel-fill"></div></div>
-    <span id="sel-progress-text"></span>
     <button type="button" class="btn btn-secondary" id="sel-abort">Interrompi</button>
   </div>
+
+  <button type="button" class="btn btn-primary btn-block" id="sel-download" disabled>
+    <svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>
+    <span id="sel-download-text">Scarica</span>
+  </button>
 </div>
 
 <div id="lightbox" class="lightbox" hidden role="dialog" aria-modal="true" aria-label="Foto ingrandita">

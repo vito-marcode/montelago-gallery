@@ -118,17 +118,28 @@ code {
 
 /* ---------- filtri per giorno ---------- */
 
+/* Resta appiccicata in alto: la copertina scorre via e i filtri restano
+   raggiungibili sopra la griglia */
 .daybar {
+  position: sticky;
+  top: 0;
+  z-index: 25;
   display: flex;
   align-items: center;
   gap: var(--space-2);
   overflow-x: auto;
   scrollbar-width: none;
   padding: var(--space-3) clamp(var(--space-4), 5vw, 64px);
-  /* Filo che sfuma ai due capi: la firma del sistema */
-  background: linear-gradient(to right,
+  backdrop-filter: blur(12px);
+  /* Filo che sfuma ai due capi: la firma del sistema. Voci separate e non
+     la scorciatoia background, che azzererebbe il colore di fondo. */
+  background-color: color-mix(in srgb, var(--color-bg) 86%, transparent);
+  background-image: linear-gradient(to right,
     transparent, var(--color-divider) 48px,
-    var(--color-divider) calc(100% - 48px), transparent) no-repeat bottom / 100% 1px;
+    var(--color-divider) calc(100% - 48px), transparent);
+  background-repeat: no-repeat;
+  background-position: bottom;
+  background-size: 100% 1px;
 }
 
 .daybar::-webkit-scrollbar { display: none; }
@@ -148,7 +159,10 @@ code {
 
 .chip.btn-primary .chip-n { color: color-mix(in srgb, var(--color-accent) 70%, transparent); }
 
-.daybar-spacer { flex: 1; }
+.daybar-spacer { flex: 1; min-width: var(--space-4); }
+
+/* Il cuore dei preferiti: stessa capsula, icona al posto dell'etichetta */
+.chip-fav .icon { width: 17px; height: 17px; }
 
 /* ---------- intestazione della giornata ---------- */
 
@@ -249,39 +263,42 @@ code {
     background-size: 40px 4px;
   }
 
-  .selbar .lb-spacer { display: none; }
+  /* Conteggio su una riga, le due secondarie sulla successiva, il download
+     a larghezza piena in fondo: sotto il pollice */
+  .sel-info { flex: 1 0 100%; }
 
-  /* Riordinate per stare in tre righe: maniglia, "N foto · MB" con Annulla
-     a fianco, poi le due azioni affiancate. In ordine di DOM Annulla
-     finirebbe da solo su una quarta riga. */
-  #sel-count {
-    order: 1;
-    flex: 1;
-    font-size: 15px;
-    /* "2 foto · 13 MB" non deve spezzarsi su due righe */
-    white-space: nowrap;
+  .sel-side {
+    flex: 1 0 100%;
+    justify-content: flex-end;
   }
 
-  #sel-cancel { order: 2; }
-  #sel-all { order: 3; }
-  #sel-download { order: 4; }
+  #sel-download { padding-block: var(--space-4); }
 
-  #sel-all,
-  #sel-download {
-    flex: 1 0 44%;
-    padding-block: var(--space-4);
-  }
-
-  .sel-progress {
-    order: 5;
-    flex-wrap: wrap;
-  }
+  .sel-progress { flex-wrap: wrap; }
 }
 
-.sel-hint { color: var(--muted); font-size: 12px; }
+/* Conteggio e stato a sinistra, le due azioni secondarie a destra, il
+   download a larghezza piena sotto */
+.sel-info {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
 
-@media (max-width: 720px) {
-  .sel-hint { display: none; }
+.sel-info strong { font-size: 16px; }
+
+.sel-status {
+  color: var(--muted);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.sel-side {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
 }
 
 .sel-progress {
@@ -413,14 +430,14 @@ main {
    In modalità selezione resta visibile su tutte. */
 .tile-check {
   position: absolute;
-  top: var(--space-2);
-  left: var(--space-2);
-  width: 22px;
-  height: 22px;
+  top: var(--space-3);
+  left: var(--space-3);
+  width: 26px;
+  height: 26px;
   padding: 0;
   border-radius: 50%;
-  border: 2px solid var(--color-neutral-200);
-  background: color-mix(in srgb, var(--color-neutral-900) 55%, transparent);
+  border: 2px solid color-mix(in srgb, var(--color-neutral-100) 85%, transparent);
+  background: color-mix(in srgb, var(--color-neutral-300) 45%, transparent);
   box-shadow: var(--shadow-sm);
   cursor: pointer;
   display: none;
@@ -436,6 +453,32 @@ main {
   background: var(--color-accent);
   border-color: var(--color-accent-100);
 }
+
+/* Preferito: cuore in basso a destra, come il segno di spunta in alto */
+.tile-fav {
+  position: absolute;
+  right: var(--space-3);
+  bottom: var(--space-3);
+  width: 26px;
+  height: 26px;
+  display: none;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--color-neutral-900) 55%, transparent);
+  color: var(--color-neutral-100);
+  cursor: pointer;
+  z-index: 2;
+}
+
+.tile:hover .tile-fav,
+.tile:focus-within .tile-fav,
+.tile.favorita .tile-fav { display: grid; }
+
+.tile.favorita .tile-fav { color: var(--color-accent-300); }
+
+.tile-fav .icon { width: 15px; height: 15px; }
 
 /* Il segno di spunta vero e proprio: passo scuro della rampa sul pieno
    dell'accento, come chiede la guida per il testo sui riempimenti */
@@ -455,8 +498,11 @@ main {
    la faceva sembrare allontanarsi, e il bordo colorato basta a distinguerla. */
 .tile.selected img { transform: scale(1.04); }
 
+/* Anello accento più una velatura leggera: si distingue anche a colpo d'occhio
+   fra molte foto, senza coprire il soggetto */
 .tile.selected::after {
-  box-shadow: inset 0 0 0 3px var(--color-accent);
+  box-shadow: inset 0 0 0 2px var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
 }
 
 .tile img {
