@@ -47,6 +47,7 @@ code {
   background-position: center 35%;
   background-size: cover;
   opacity: .55;
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 45%, transparent 100%);
   mask-image: linear-gradient(to bottom, #000 0%, #000 45%, transparent 100%);
 }
 
@@ -151,6 +152,7 @@ code {
   gap: var(--space-2);
   overflow-x: auto;
   scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 24px), transparent 100%);
   mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 24px), transparent 100%);
 }
 
@@ -651,9 +653,6 @@ main {
   align-items: center;
   min-height: 0;
   position: relative;
-  /* I gesti li gestisce il sito: senza questo il browser intercetta il
-     pizzico e lo scorrimento e non arrivano gli eventi */
-  touch-action: none;
 }
 
 .lb-imgwrap {
@@ -670,6 +669,12 @@ main {
   padding: var(--space-3);
   /* Ingrandita, la foto non deve sbordare sulla barra e sulla didascalia */
   overflow: hidden;
+  /* I gesti sulla foto li gestisce il sito: senza questo il browser
+     intercetta pizzico e scorrimento e non arrivano gli eventi.
+     Sta qui e non su .lb-stage perché touch-action si interseca scendendo
+     nell'albero e un discendente non può riabilitarlo: messo sullo stage
+     rendeva il cursore della barra dello zoom non trascinabile col dito. */
+  touch-action: none;
 }
 
 /* Blocco trasformato dal gesto di zoom. La trasformazione non tocca il
