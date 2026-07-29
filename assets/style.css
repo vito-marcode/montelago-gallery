@@ -97,6 +97,13 @@ code {
   color: var(--color-neutral-700);
 }
 
+/* Avanzamento della lettura delle date: sta nella riga informativa per non
+   spostare la griglia mentre appare e scompare */
+.hero-nota {
+  color: var(--color-accent-300);
+  font-size: 13px;
+}
+
 .hero-actions {
   display: flex;
   flex-wrap: wrap;

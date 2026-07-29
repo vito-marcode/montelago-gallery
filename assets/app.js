@@ -22,7 +22,18 @@ const FETCH_CONCURRENCY = 3;
 /* Oltre i 4 GB servirebbe il formato ZIP64, che non è implementato */
 const ZIP_MAX_BYTES = 3.5 * 1024 ** 3;
 
+/* Byte iniziali da leggere per trovare la data di scatto: su questi file ne
+   bastano 2 KB, 16 KB è margine. Se non basta si ritenta con 64 KB. */
+const EXIF_RANGE = 16 * 1024;
+const EXIF_RANGE_FALLBACK = 64 * 1024;
+const EXIF_CONCURRENCY = 8;
+const EXIF_CACHE = 'gallery:exif:';
+
 const collator = new Intl.Collator('it', { numeric: true, sensitivity: 'base' });
+
+/* Quando la foto è stata scattata. La data del bucket è quella di
+   caricamento: se le foto sono state caricate tutte insieme raggruppa male. */
+const quando = (photo) => photo.taken || photo.modified;
 
 const el = (id) => document.getElementById(id);
 const dom = {
@@ -276,10 +287,160 @@ function sortPhotos() {
   const [field, dir] = state.sort.split('-');
   const sign = dir === 'desc' ? -1 : 1;
   state.photos.sort((a, b) => {
-    if (field === 'date') return sign * (Date.parse(a.modified || 0) - Date.parse(b.modified || 0));
+    if (field === 'date') {
+      const diff = Date.parse(quando(a)) - Date.parse(quando(b));
+      /* A parità di istante — tipico quando l'EXIF manca — conta il nome:
+         i file numerati seguono l'ordine di scatto */
+      return sign * (diff || collator.compare(a.name, b.name));
+    }
     if (field === 'size') return sign * (a.size - b.size);
     return sign * collator.compare(a.name, b.name);
   });
+}
+
+/* ------------------------------------------------------- date di scatto */
+
+function leggiAscii(view, offset, lunghezza) {
+  let s = '';
+  for (let i = 0; i < lunghezza && offset + i < view.byteLength; i += 1) {
+    const c = view.getUint8(offset + i);
+    if (c === 0) break;
+    s += String.fromCharCode(c);
+  }
+  return s;
+}
+
+/* "2026:07:19 22:01:45" — l'EXIF non porta il fuso, quindi va letta come ora
+   locale: è il giorno che il fotografo ha vissuto */
+function dataDaExif(testo) {
+  const m = /^(\d{4}):(\d{2}):(\d{2})[ T](\d{2}):(\d{2}):(\d{2})/.exec(testo || '');
+  if (!m) return null;
+  const d = new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+}
+
+/* Percorre gli IFD del blocco TIFF cercando DateTimeOriginal (0x9003), con
+   DateTime (0x0132) come ripiego */
+function leggiTiff(view, start, end) {
+  if (start + 8 > end) return null;
+  const be = leggiAscii(view, start, 2) === 'MM';
+  const u16 = (o) => view.getUint16(o, !be);
+  const u32 = (o) => view.getUint32(o, !be);
+  if (u16(start + 2) !== 0x2a) return null;
+
+  let risultato = null;
+  const ifd = (offset, profondita) => {
+    const o = start + offset;
+    if (profondita > 2 || o + 2 > end) return;
+    const n = u16(o);
+    for (let k = 0; k < n; k += 1) {
+      const e = o + 2 + k * 12;
+      if (e + 12 > end) return;
+      const tag = u16(e);
+      const cnt = u32(e + 4);
+      if (tag === 0x8769) { ifd(u32(e + 8), profondita + 1); continue; }
+      if (tag !== 0x9003 && tag !== 0x0132) continue;
+      const p = cnt > 4 ? start + u32(e + 8) : e + 8;
+      const data = dataDaExif(leggiAscii(view, p, Math.min(20, cnt)));
+      /* DateTimeOriginal ha la precedenza su DateTime */
+      if (data && (tag === 0x9003 || !risultato)) risultato = data;
+    }
+  };
+  ifd(u32(start + 4), 0);
+  return risultato;
+}
+
+/* Cerca il segmento APP1/Exif nell'intestazione del JPEG */
+function exifDate(buffer) {
+  const view = new DataView(buffer);
+  if (view.byteLength < 4 || view.getUint16(0) !== 0xffd8) return null;
+
+  let i = 2;
+  while (i + 4 <= view.byteLength) {
+    if (view.getUint8(i) !== 0xff) { i += 1; continue; }
+    const marker = view.getUint8(i + 1);
+    if (marker === 0xd8 || marker === 0xd9) { i += 2; continue; }
+    if (marker === 0xda) break;              // inizia l'immagine: nessun EXIF
+    const len = view.getUint16(i + 2);
+    if (len < 2) break;
+    if (marker === 0xe1 && leggiAscii(view, i + 4, 4) === 'Exif') {
+      return leggiTiff(view, i + 10, Math.min(i + 2 + len, view.byteLength));
+    }
+    i += 2 + len;
+  }
+  return null;
+}
+
+async function scaricaExif(photo, byte) {
+  try {
+    const res = await fetch(objectUrl(photo), {
+      headers: { Range: `bytes=0-${byte - 1}` },
+      credentials: 'omit',
+    });
+    /* Solo una risposta parziale: se il server ignorasse Range arriverebbero
+       i megabyte dell'originale, per ogni foto */
+    if (res.status !== 206) {
+      res.body?.cancel?.();
+      return null;
+    }
+    return exifDate(await res.arrayBuffer());
+  } catch {
+    return null;
+  }
+}
+
+async function dataDiScatto(photo) {
+  const chiave = `${EXIF_CACHE}${photo.key}:${photo.size}`;
+  try {
+    const salvata = localStorage.getItem(chiave);
+    if (salvata !== null) return salvata === '-' ? null : salvata;
+  } catch { /* localStorage non disponibile */ }
+
+  const data = await scaricaExif(photo, EXIF_RANGE)
+    || await scaricaExif(photo, EXIF_RANGE_FALLBACK);
+  try { localStorage.setItem(chiave, data || '-'); } catch { /* spazio esaurito */ }
+  return data;
+}
+
+/* Legge le date in parallelo, poi riordina e raggruppa. Si fa dopo il primo
+   disegno: i nomi numerati seguono già l'ordine di scatto, quindi la griglia
+   non si rimescola, cambiano solo le intestazioni di giornata. */
+async function aggiornaDateDiScatto() {
+  const daLeggere = state.photos.filter((p) => !p.taken);
+  if (!daLeggere.length) return;
+
+  const nota = document.createElement('span');
+  nota.className = 'hero-nota';
+  dom.meta.append(nota);
+  const avanza = (fatte) => { nota.textContent = `date di scatto ${fatte}/${daLeggere.length}`; };
+  avanza(0);
+
+  let prossima = 0;
+  let fatte = 0;
+  const worker = async () => {
+    while (prossima < daLeggere.length) {
+      const photo = daLeggere[prossima];
+      prossima += 1;
+      photo.taken = await dataDiScatto(photo);
+      fatte += 1;
+      avanza(fatte);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(EXIF_CONCURRENCY, daLeggere.length) }, worker));
+  nota.remove();
+
+  if (!state.photos.some((p) => p.taken)) return;   // nessuna data trovata
+
+  const aperta = lightboxOpen() ? state.shown[state.index] : null;
+  sortPhotos();
+  raggruppaPerGiorno();
+  updateHeader();
+  /* Le chiavi dei giorni sono cambiate: il filtro precedente non vale più */
+  applicaFiltro(null);
+  if (aperta) {
+    const i = state.shown.indexOf(aperta);
+    if (i >= 0) { state.index = i; showCurrent(); } else closeLightbox();
+  }
 }
 
 /* ------------------------------------------------------ giorni e copertina */
@@ -304,9 +465,9 @@ function etichettaGiorno(iso, conGiornoSettimana = true) {
 function raggruppaPerGiorno() {
   const mappa = new Map();
   for (const photo of state.photos) {
-    const chiave = chiaveGiorno(photo.modified);
+    const chiave = chiaveGiorno(quando(photo));
     if (!mappa.has(chiave)) {
-      mappa.set(chiave, { chiave, iso: photo.modified, count: 0 });
+      mappa.set(chiave, { chiave, iso: quando(photo), count: 0 });
     }
     mappa.get(chiave).count += 1;
   }
@@ -316,7 +477,7 @@ function raggruppaPerGiorno() {
 /* "28 luglio 2026", "27–28 luglio 2026" oppure "29 giugno – 3 luglio 2026" */
 function intervalloDate() {
   if (!state.photos.length) return '';
-  const date = state.photos.map((p) => new Date(p.modified)).filter((d) => !Number.isNaN(d.getTime()));
+  const date = state.photos.map((p) => new Date(quando(p))).filter((d) => !Number.isNaN(d.getTime()));
   if (!date.length) return '';
 
   const primo = new Date(Math.min(...date));
@@ -343,7 +504,7 @@ function impostaCopertina() {
 function applicaFiltro(chiave) {
   state.filtro = chiave;
   state.shown = chiave
-    ? state.photos.filter((p) => chiaveGiorno(p.modified) === chiave)
+    ? state.photos.filter((p) => chiaveGiorno(quando(p)) === chiave)
     : state.photos;
   state.anchor = -1;
   renderDaybar();
@@ -404,10 +565,10 @@ function intestazioneGiorno(photo, chiave) {
 
   const nome = document.createElement('h2');
   nome.className = 'day-name';
-  nome.textContent = etichettaGiorno(photo.modified);
+  nome.textContent = etichettaGiorno(quando(photo));
   testa.append(nome);
 
-  const n = state.shown.filter((p) => chiaveGiorno(p.modified) === chiave).length;
+  const n = state.shown.filter((p) => chiaveGiorno(quando(p)) === chiave).length;
   const conteggio = document.createElement('span');
   conteggio.className = 'day-count';
   conteggio.textContent = `${n} foto`;
@@ -431,7 +592,7 @@ function renderGrid() {
   state.shown.forEach((photo, i) => {
     /* Le foto sono già ordinate per data: basta accorgersi del cambio di
        giorno per inserire l'intestazione al punto giusto */
-    const giorno = chiaveGiorno(photo.modified);
+    const giorno = chiaveGiorno(quando(photo));
     if (giorno !== giornoCorrente) {
       giornoCorrente = giorno;
       frag.append(intestazioneGiorno(photo, giorno));
@@ -694,7 +855,7 @@ async function fetchAll(photos, signal, onProgress) {
       const res = await fetch(objectUrl(photo), { signal, credentials: 'omit' });
       if (!res.ok) throw new Error(`${photo.name}: il server ha risposto ${res.status}`);
       const data = new Uint8Array(await res.arrayBuffer());
-      results[index] = { name: photo.name, data, date: new Date(photo.modified) };
+      results[index] = { name: photo.name, data, date: new Date(quando(photo)) };
       bytes += data.length;
       done += 1;
       onProgress(done, bytes);
@@ -967,7 +1128,7 @@ function showCurrent() {
 
   /* La nota è in un elemento a parte perché su mobile viene nascosta:
      sopra la foto occuperebbe due o tre righe */
-  dom.lbInfoMain.textContent = [humanBytes(photo.size), humanDate(photo.modified)]
+  dom.lbInfoMain.textContent = [humanBytes(photo.size), humanDate(quando(photo))]
     .filter(Boolean).join(' · ');
   dom.lbInfoNote.textContent = ' · anteprima ridotta — usa “Scarica” per l’originale';
 
@@ -1141,6 +1302,10 @@ function finish() {
     const i = state.shown.findIndex((p) => p.key === key);
     if (i >= 0) openAt(i, { fromHistory: true });
   }
+
+  /* Le date di scatto arrivano dopo: la griglia è già visibile e sarà
+     riordinata e ri-raggruppata quando la lettura finisce */
+  aggiornaDateDiScatto();
 }
 
 /* ------------------------------------------------------------------ eventi */
