@@ -28,6 +28,13 @@ const el = (id) => document.getElementById(id);
 const dom = {
   title: el('title'),
   meta: el('meta'),
+  hero: el('hero'),
+  heroPhoto: el('hero-photo'),
+  heroActions: el('hero-actions'),
+  daybar: el('daybar'),
+  downloadAll: el('download-all'),
+  shareGallery: el('share-gallery'),
+  selectBtn: el('select-btn'),
   changePanel: el('change-panel'),
   bucketInput: el('bucket-input'),
   selbar: el('selbar'),
@@ -76,7 +83,12 @@ const dom = {
 
 const state = {
   source: null,      // { listBase, objectBase, prefix }
-  photos: [],
+  photos: [],        // tutte le foto, ordinate
+  /* Foto effettivamente mostrate: coincidono con photos, o con un solo
+     giorno quando è attivo un filtro. Griglia e visore lavorano su queste. */
+  shown: [],
+  giorni: [],        // { chiave, etichetta, count }
+  filtro: null,      // chiave del giorno scelto, o null per "Tutte"
   /* Ordinamento fisso, non modificabile dall'interfaccia */
   sort: 'date-asc',
   thumbW: 480,
@@ -239,7 +251,7 @@ const observer = new IntersectionObserver((entries) => {
 }, { rootMargin: '600px 0px' });
 
 function loadTile(tile) {
-  const photo = state.photos[Number(tile.dataset.i)];
+  const photo = state.shown[Number(tile.dataset.i)];
   const img = tile.querySelector('img');
   if (!photo || img.dataset.started) return;
   img.dataset.started = '1';
@@ -270,11 +282,143 @@ function sortPhotos() {
   });
 }
 
+/* ------------------------------------------------------ giorni e copertina */
+
+/* Chiave di giornata nel fuso locale: le date ISO del bucket sono in UTC,
+   raggrupparle senza convertirle spezzerebbe le foto serali sul giorno dopo */
+function chiaveGiorno(iso) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return 'senza-data';
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function etichettaGiorno(iso, conGiornoSettimana = true) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return 'Senza data';
+  const testo = d.toLocaleDateString('it-IT', conGiornoSettimana
+    ? { weekday: 'long', day: 'numeric', month: 'long' }
+    : { day: 'numeric', month: 'long' });
+  return testo.charAt(0).toUpperCase() + testo.slice(1);
+}
+
+function raggruppaPerGiorno() {
+  const mappa = new Map();
+  for (const photo of state.photos) {
+    const chiave = chiaveGiorno(photo.modified);
+    if (!mappa.has(chiave)) {
+      mappa.set(chiave, { chiave, iso: photo.modified, count: 0 });
+    }
+    mappa.get(chiave).count += 1;
+  }
+  state.giorni = [...mappa.values()];
+}
+
+/* "28 luglio 2026", "27–28 luglio 2026" oppure "29 giugno – 3 luglio 2026" */
+function intervalloDate() {
+  if (!state.photos.length) return '';
+  const date = state.photos.map((p) => new Date(p.modified)).filter((d) => !Number.isNaN(d.getTime()));
+  if (!date.length) return '';
+
+  const primo = new Date(Math.min(...date));
+  const ultimo = new Date(Math.max(...date));
+  const anno = ultimo.getFullYear();
+
+  const stessoGiorno = primo.toDateString() === ultimo.toDateString();
+  if (stessoGiorno) return `${etichettaGiorno(primo.toISOString(), false)} ${anno}`;
+
+  if (primo.getMonth() === ultimo.getMonth() && primo.getFullYear() === anno) {
+    const mese = ultimo.toLocaleDateString('it-IT', { month: 'long' });
+    return `${primo.getDate()}–${ultimo.getDate()} ${mese} ${anno}`;
+  }
+  return `${etichettaGiorno(primo.toISOString(), false)} – ${etichettaGiorno(ultimo.toISOString(), false)} ${anno}`;
+}
+
+/* La prima foto della raccolta fa da copertina */
+function impostaCopertina() {
+  const photo = state.photos[0];
+  if (!photo) return;
+  dom.heroPhoto.style.backgroundImage = `url("${proxied(photo, 1600)}")`;
+}
+
+function applicaFiltro(chiave) {
+  state.filtro = chiave;
+  state.shown = chiave
+    ? state.photos.filter((p) => chiaveGiorno(p.modified) === chiave)
+    : state.photos;
+  state.anchor = -1;
+  renderDaybar();
+  renderGrid();
+  updateSelectionUi();
+}
+
+function renderDaybar() {
+  /* Con un solo giorno il filtro non aggiunge nulla */
+  const utile = state.giorni.length > 1;
+  dom.daybar.hidden = !utile;
+  if (!utile) return;
+
+  dom.daybar.textContent = '';
+  const voci = [{ chiave: null, etichetta: 'Tutte', count: state.photos.length }, ...state.giorni.map((g) => ({
+    chiave: g.chiave,
+    etichetta: etichettaGiorno(g.iso, false),
+    count: g.count,
+  }))];
+
+  for (const voce of voci) {
+    const attiva = state.filtro === voce.chiave;
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = `btn chip ${attiva ? 'btn-primary' : 'btn-ghost'}`;
+    chip.setAttribute('aria-pressed', String(attiva));
+    chip.append(document.createTextNode(voce.etichetta));
+
+    const n = document.createElement('span');
+    n.className = 'chip-n';
+    n.textContent = String(voce.count);
+    chip.append(n);
+
+    chip.addEventListener('click', () => applicaFiltro(voce.chiave));
+    dom.daybar.append(chip);
+  }
+}
+
+/* ---------------------------------------------------------------- griglia */
+
+/* La griglia contiene anche le intestazioni di giornata, quindi i riquadri
+   non coincidono più con i figli: si cercano per indice. */
+const tileAt = (i) => dom.grid.querySelector(`.tile[data-i="${i}"]`);
+const allTiles = () => dom.grid.querySelectorAll('.tile');
+
 function measureThumbWidth() {
-  const probe = dom.grid.firstElementChild;
+  const probe = dom.grid.querySelector('.tile');
   const cssW = probe ? probe.getBoundingClientRect().width : 220;
   const needed = cssW * Math.min(window.devicePixelRatio || 1, 2);
   return THUMB_STEPS.find((w) => w >= needed) || THUMB_STEPS[THUMB_STEPS.length - 1];
+}
+
+/* Occupa tutta la riga della griglia: nome del giorno, quante foto e un filo
+   che sfuma verso destra */
+function intestazioneGiorno(photo, chiave) {
+  const testa = document.createElement('div');
+  testa.className = 'day-head';
+
+  const nome = document.createElement('h2');
+  nome.className = 'day-name';
+  nome.textContent = etichettaGiorno(photo.modified);
+  testa.append(nome);
+
+  const n = state.shown.filter((p) => chiaveGiorno(p.modified) === chiave).length;
+  const conteggio = document.createElement('span');
+  conteggio.className = 'day-count';
+  conteggio.textContent = `${n} foto`;
+  testa.append(conteggio);
+
+  const filo = document.createElement('span');
+  filo.className = 'day-rule';
+  filo.setAttribute('aria-hidden', 'true');
+  testa.append(filo);
+
+  return testa;
 }
 
 function renderGrid() {
@@ -282,7 +426,17 @@ function renderGrid() {
   dom.grid.textContent = '';
 
   const frag = document.createDocumentFragment();
-  state.photos.forEach((photo, i) => {
+  let giornoCorrente = null;
+
+  state.shown.forEach((photo, i) => {
+    /* Le foto sono già ordinate per data: basta accorgersi del cambio di
+       giorno per inserire l'intestazione al punto giusto */
+    const giorno = chiaveGiorno(photo.modified);
+    if (giorno !== giornoCorrente) {
+      giornoCorrente = giorno;
+      frag.append(intestazioneGiorno(photo, giorno));
+    }
+
     const tile = document.createElement('div');
     tile.className = 'tile';
     tile.dataset.i = String(i);
@@ -318,7 +472,7 @@ function renderGrid() {
   dom.grid.append(frag);
 
   state.thumbW = measureThumbWidth();
-  for (const tile of dom.grid.children) observer.observe(tile);
+  for (const tile of allTiles()) observer.observe(tile);
 }
 
 /* In modalità selezione il riquadro è un interruttore, altrimenti apre la foto */
@@ -360,7 +514,7 @@ function updateSelectionUi() {
     : 'Nessuna foto selezionata';
   dom.selDownload.disabled = !chosen.length || state.downloading;
   dom.selDownloadText.textContent = chosen.length ? `Scarica (${chosen.length})` : 'Scarica';
-  dom.selAll.textContent = chosen.length === state.photos.length ? 'Deseleziona tutte' : 'Seleziona tutte';
+  dom.selAll.textContent = chosen.length === state.shown.length ? 'Deseleziona tutte' : 'Seleziona tutte';
   syncSelbarSpace();
 }
 
@@ -378,19 +532,19 @@ function setSelecting(on) {
   if (!on) {
     state.selection.clear();
     state.anchor = -1;
-    for (const tile of dom.grid.children) tile.classList.remove('selected');
+    for (const tile of allTiles()) tile.classList.remove('selected');
   }
-  for (const tile of dom.grid.children) syncTileLabel(tile, state.photos[Number(tile.dataset.i)]);
+  for (const tile of allTiles()) syncTileLabel(tile, state.shown[Number(tile.dataset.i)]);
   updateSelectionUi();
 }
 
 function setSelected(index, on) {
-  const photo = state.photos[index];
+  const photo = state.shown[index];
   if (!photo) return;
   if (on) state.selection.add(photo.key);
   else state.selection.delete(photo.key);
 
-  const tile = dom.grid.children[index];
+  const tile = tileAt(index);
   if (tile) {
     tile.classList.toggle('selected', on);
     syncTileLabel(tile, photo);
@@ -398,7 +552,7 @@ function setSelected(index, on) {
 }
 
 function toggleAt(index) {
-  const photo = state.photos[index];
+  const photo = state.shown[index];
   if (!photo) return;
   setSelected(index, !state.selection.has(photo.key));
   state.anchor = index;
@@ -651,7 +805,7 @@ function openSharePanel(photo) {
 }
 
 async function shareCurrent() {
-  const photo = state.photos[state.index];
+  const photo = state.shown[state.index];
   if (!photo) return;
   const url = shareUrl(photo);
 
@@ -765,7 +919,7 @@ function azzeraZoom() {
    Si sostituisce in silenzio: entra in dissolvenza sopra l'anteprima, che
    resta opaca sotto, come già avviene fra miniatura e anteprima. */
 function caricaHires() {
-  const photo = state.photos[state.index];
+  const photo = state.shown[state.index];
   if (hiresChiesta || !photo) return;
   hiresChiesta = true;
 
@@ -789,7 +943,7 @@ function lightboxOpen() {
 }
 
 function showCurrent() {
-  const photo = state.photos[state.index];
+  const photo = state.shown[state.index];
   if (!photo) return;
 
   state.renderToken += 1;
@@ -807,7 +961,7 @@ function showCurrent() {
   dom.lbImg.src = previewUrl(photo);
 
   dom.lbName.textContent = photo.name;
-  dom.lbCounter.textContent = `${state.index + 1} / ${state.photos.length}`;
+  dom.lbCounter.textContent = `${state.index + 1} / ${state.shown.length}`;
   dom.lbDownload.href = objectUrl(photo);
   dom.lbDownload.setAttribute('download', photo.name);
 
@@ -817,14 +971,14 @@ function showCurrent() {
     .filter(Boolean).join(' · ');
   dom.lbInfoNote.textContent = ' · anteprima ridotta — usa “Scarica” per l’originale';
 
-  const single = state.photos.length < 2;
+  const single = state.shown.length < 2;
   dom.lbPrev.hidden = single;
   dom.lbNext.hidden = single;
 }
 
 function openAt(index, { fromHistory = false } = {}) {
-  if (!state.photos.length) return;
-  state.index = ((index % state.photos.length) + state.photos.length) % state.photos.length;
+  if (!state.shown.length) return;
+  state.index = ((index % state.shown.length) + state.shown.length) % state.shown.length;
 
   const wasOpen = lightboxOpen();
   dom.lb.hidden = false;
@@ -832,7 +986,7 @@ function openAt(index, { fromHistory = false } = {}) {
   showCurrent();
   if (!wasOpen) dom.lbClose.focus({ preventScroll: true });
 
-  const hash = '#' + encodeURIComponent(state.photos[state.index].key);
+  const hash = '#' + encodeURIComponent(state.shown[state.index].key);
   if (fromHistory) return;
   if (wasOpen || state.pushedHistory) {
     history.replaceState(history.state, '', hash);
@@ -850,7 +1004,7 @@ function closeLightbox({ fromHistory = false } = {}) {
   document.body.style.overflow = '';
 
   /* Il riquadro è un contenitore: il focus torna al pulsante che apre */
-  const apri = dom.grid.children[state.index]?.querySelector('.tile-open');
+  const apri = tileAt(state.index)?.querySelector('.tile-open');
   if (apri) apri.focus({ preventScroll: true });
 
   if (!fromHistory && state.pushedHistory) {
@@ -883,14 +1037,24 @@ function showError(message, hints) {
 function updateHeader() {
   const totalBytes = state.photos.reduce((sum, p) => sum + p.size, 0);
   const n = state.photos.length;
-  dom.meta.textContent = `${n} foto · ${humanBytes(totalBytes)}`;
+
+  /* Voci in elementi separati: il separatore lo disegna il CSS, non è un
+     carattere dentro al testo */
+  dom.meta.textContent = '';
+  for (const voce of [`${n} foto`, humanBytes(totalBytes), intervalloDate()].filter(Boolean)) {
+    const s = document.createElement('span');
+    s.textContent = voce;
+    dom.meta.append(s);
+  }
+
   dom.title.textContent = state.source.prefix
     ? state.source.prefix.replace(/\/$/, '').split('/').pop()
     : 'Galleria foto';
   document.title = `${dom.title.textContent} · ${n} foto`;
+  dom.heroActions.hidden = n === 0;
 
-  const shown = `${state.source.objectBase}/${state.source.prefix}`;
-  dom.footerSource.textContent = `Origine: ${shown}`;
+  const origine = `${state.source.objectBase}/${state.source.prefix}`;
+  dom.footerSource.textContent = `Origine: ${origine}`;
 }
 
 async function load(rawUrl) {
@@ -921,6 +1085,7 @@ async function load(rawUrl) {
       if (photos.length) {
         state.source = candidate;
         state.photos = photos;
+        state.shown = photos;
         finish();
         return;
       }
@@ -933,6 +1098,7 @@ async function load(rawUrl) {
   if (emptyFallback) {
     state.source = emptyFallback;
     state.photos = [];
+    state.shown = [];
     dom.status.hidden = true;
     updateHeader();
     showError('Nessuna immagine trovata in questa cartella.', [
@@ -959,18 +1125,20 @@ async function load(rawUrl) {
 
 function finish() {
   sortPhotos();
+  raggruppaPerGiorno();
   dom.status.hidden = true;
   dom.error.hidden = true;
   updateHeader();
-  renderGrid();
-  updateSelectionUi();
+  impostaCopertina();
+  /* Nessun filtro all'avvio: mostra tutte e disegna la barra dei giorni */
+  applicaFiltro(null);
 
   /* Apertura diretta di una foto condivisa via #chiave */
   const hash = location.hash.slice(1);
   if (hash) {
     let key;
     try { key = decodeURIComponent(hash); } catch { key = hash; }
-    const i = state.photos.findIndex((p) => p.key === key);
+    const i = state.shown.findIndex((p) => p.key === key);
     if (i >= 0) openAt(i, { fromHistory: true });
   }
 }
@@ -1035,12 +1203,44 @@ dom.grid.addEventListener('contextmenu', (e) => {
   if (state.selecting || press?.fired) e.preventDefault();
 });
 
+dom.selectBtn.addEventListener('click', () => setSelecting(!state.selecting));
 dom.selCancel.addEventListener('click', () => setSelecting(false));
 
+/* "Scarica tutto" sceglie tutte le foto mostrate e apre il pannello, senza
+   partire da sé: con centinaia di originali conviene che la mole sia visibile
+   prima di confermare */
+dom.downloadAll.addEventListener('click', () => {
+  if (!state.shown.length) return;
+  setSelecting(true);
+  state.shown.forEach((_, i) => setSelected(i, true));
+  state.anchor = state.shown.length - 1;
+  updateSelectionUi();
+  dom.selDownload.focus({ preventScroll: true });
+});
+
+/* Condivide la galleria, non una singola foto: stesso indirizzo senza #chiave */
+dom.shareGallery.addEventListener('click', async () => {
+  const url = location.origin + location.pathname + location.search;
+  const titolo = dom.title.textContent;
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: titolo, text: `Galleria ${titolo}`, url });
+      return;
+    } catch (e) {
+      if (e.name === 'AbortError') return;
+    }
+  }
+  try {
+    await navigator.clipboard.writeText(url);
+    dom.shareGallery.querySelector('span').textContent = 'Link copiato';
+    setTimeout(() => { dom.shareGallery.querySelector('span').textContent = 'Condividi'; }, 2500);
+  } catch { /* niente appunti disponibili */ }
+});
+
 dom.selAll.addEventListener('click', () => {
-  const tutte = state.selection.size === state.photos.length;
-  state.photos.forEach((_, i) => setSelected(i, !tutte));
-  state.anchor = tutte ? -1 : state.photos.length - 1;
+  const tutte = state.selection.size === state.shown.length;
+  state.shown.forEach((_, i) => setSelected(i, !tutte));
+  state.anchor = tutte ? -1 : state.shown.length - 1;
   updateSelectionUi();
 });
 
@@ -1083,7 +1283,7 @@ dom.lbPlaceholder.addEventListener('load', () => {
   if (!dom.lb.classList.contains('ready')) dom.lb.classList.add('lqip');
 });
 dom.lbImg.addEventListener('error', () => {
-  const photo = state.photos[state.index];
+  const photo = state.shown[state.index];
   /* Se l'anteprima grande non arriva, mostra l'originale */
   if (photo && dom.lbImg.src !== objectUrl(photo)) dom.lbImg.src = objectUrl(photo);
 });
@@ -1099,7 +1299,7 @@ function setDownloadLabel(testo, mostraSempre) {
    un altro dominio l'attributo download è ignorato e la foto si aprirebbe */
 dom.lbDownload.addEventListener('click', async (e) => {
   e.preventDefault();
-  const photo = state.photos[state.index];
+  const photo = state.shown[state.index];
   if (!photo || dom.lbDownload.dataset.busy) return;
 
   dom.lbDownload.dataset.busy = '1';
@@ -1121,7 +1321,7 @@ dom.lbShare.addEventListener('click', shareCurrent);
 dom.shareClose.addEventListener('click', closeSharePanel);
 
 dom.shareCopy.addEventListener('click', async () => {
-  const photo = state.photos[state.index];
+  const photo = state.shown[state.index];
   if (!photo) return;
   try {
     await navigator.clipboard.writeText(shareUrl(photo));
@@ -1164,7 +1364,7 @@ document.addEventListener('keydown', (e) => {
   else if (e.key === 'ArrowRight') { step(1); }
   else if (e.key === 'ArrowLeft') { step(-1); }
   else if (e.key === 'Home') { openAt(0); }
-  else if (e.key === 'End') { openAt(state.photos.length - 1); }
+  else if (e.key === 'End') { openAt(state.shown.length - 1); }
   else return;
   e.preventDefault();
 });
@@ -1308,6 +1508,8 @@ function showWelcome() {
   dom.error.hidden = true;
   dom.welcome.hidden = false;
   dom.meta.textContent = '';
+  dom.heroActions.hidden = true;
+  dom.daybar.hidden = true;
   openChangePanel(true);
 }
 

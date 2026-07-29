@@ -25,6 +25,10 @@
           stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
     <path d="m8.5 5 7 7-7 7"/>
   </symbol>
+  <symbol id="i-check-circle" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="9"/><path d="m8 12 2.6 2.6L16 9.4"/>
+  </symbol>
   <symbol id="i-share" viewBox="0 0 24 24" fill="none" stroke="currentColor"
           stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
     <circle cx="18" cy="5" r="2.6"/><circle cx="6" cy="12" r="2.6"/><circle cx="18" cy="19" r="2.6"/>
@@ -32,10 +36,29 @@
   </symbol>
 </svg>
 
-<header class="topbar nav">
-  <div class="topbar-main">
-    <h1 id="title" class="nav-brand">Galleria foto</h1>
-    <p class="meta text-muted" id="meta">Caricamento…</p>
+<header class="hero" id="hero">
+  <!-- Copertina: passa da .lighten, così i valori scuri cadono nel fondo -->
+  <div class="hero-photo lighten" id="hero-photo" aria-hidden="true"></div>
+
+  <div class="hero-body">
+    <p class="hero-kicker"><span class="hero-dash" aria-hidden="true"></span>Galleria condivisa</p>
+    <h1 class="hero-title" id="title">Galleria foto</h1>
+    <p class="hero-meta" id="meta">Caricamento…</p>
+
+    <div class="hero-actions" id="hero-actions" hidden>
+      <button type="button" class="btn btn-primary" id="download-all">
+        <svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>
+        <span>Scarica tutto</span>
+      </button>
+      <button type="button" class="btn btn-secondary" id="share-gallery">
+        <svg class="icon" aria-hidden="true"><use href="#i-share"/></svg>
+        <span>Condividi</span>
+      </button>
+      <button type="button" class="btn btn-ghost" id="select-btn">
+        <svg class="icon" aria-hidden="true"><use href="#i-check-circle"/></svg>
+        <span>Seleziona</span>
+      </button>
+    </div>
   </div>
 
   <form id="change-panel" class="change-panel field" hidden>
@@ -48,6 +71,8 @@
     <p class="hint text-muted">Il sito accetta anche il parametro nell'indirizzo: <code>?bucket-url=…</code></p>
   </form>
 </header>
+
+<nav class="daybar" id="daybar" aria-label="Filtra per giorno" hidden></nav>
 
 <main>
   <div id="welcome" class="welcome" hidden>
