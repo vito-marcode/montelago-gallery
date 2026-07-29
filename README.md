@@ -52,6 +52,59 @@ Both S3 address styles are accepted:
 If one of the three requirements is missing, the gallery shows an error
 message explaining which one.
 
+### How to make files public to use them here
+
+The gallery reads the bucket directly from the browser, with no server in
+between: it needs two public permissions and a CORS rule.
+
+- **reading files** (`s3:GetObject`), so photos can be opened;
+- **listing files** (`s3:ListBucket`), so the site knows which photos exist;
+- **CORS** allowing `GET` requests from the site's origin (see the project's
+  README).
+
+**Whole bucket public.** If the provider's console offers a "public read
+access" switch on the bucket, it's the simplest route: it usually enables
+both reading and listing on all files.
+
+**Only one folder, bucket private for the rest.** This needs a bucket policy
+that grants the two permissions only on the folder's prefix, keeping
+everything else private:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "PublicReadFolder",
+      "Effect": "Allow",
+      "Principal": "*",
+      "Action": "s3:GetObject",
+      "Resource": "arn:aws:s3:::my-bucket/photos/*"
+    },
+    {
+      "Sid": "PublicListFolder",
+      "Effect": "Allow",
+      "Principal": "*",
+      "Action": "s3:ListBucket",
+      "Resource": "arn:aws:s3:::my-bucket",
+      "Condition": {
+        "StringLike": { "s3:prefix": ["photos/*"] }
+      }
+    }
+  ]
+}
+```
+
+Replace `my-bucket` and `photos/` with your own. Some S3-compatible providers
+use a different syntax to identify buckets and objects in the resource: the
+policy structure (principal, action, resource, condition) stays the same,
+but check their documentation for the exact format. The CORS rule described
+in the README also needs to be added.
+
+> **Warning:** anyone who knows the address can view and list the files made
+> public this way. Keep anything that shouldn't be shared out of the public
+> folder.
+
 ## Previews
 
 Original photos can weigh several MB each: loading the grid at full
@@ -165,18 +218,6 @@ anyone just browsing without zooming never downloads it. It's the whole file
 (6.6 MB for 4592×3448 in the example), so on mobile networks the wait is
 noticeable: the preview stays visible in the meantime. If the download
 fails, the preview stays and the attempt can be retried.
-
-## Sharing
-
-In the lightbox the **Share** button offers the link to the gallery opened on
-that photo (`…?bucket-url=…#<key>`), so whoever receives it sees it in the
-context of the gallery.
-
-Where `navigator.share` exists (mobile, Safari) the system share panel opens,
-reaching every installed app. Elsewhere a list appears with WhatsApp,
-Telegram, Facebook, X, Email and **Copy link**: these are plain links opened
-in a new tab, so publishing is always confirmed by the user in the service's
-own interface — the site never publishes anything on its own.
 
 ## Gallery features
 
