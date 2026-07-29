@@ -329,6 +329,18 @@ function salvaPreferiti() {
   } catch { /* spazio esaurito: i preferiti restano solo per questa visita */ }
 }
 
+/* Cuore nella barra del visore: lo aggiornano sia l'apertura di una foto
+   sia il clic sul cuore stesso */
+function syncLbFav() {
+  const photo = state.shown[state.index];
+  if (!photo) return;
+  const preferita = state.favorites.has(photo.key);
+  dom.lbFav.setAttribute('aria-pressed', String(preferita));
+  dom.lbFav.title = preferita ? 'Togli dai preferiti' : 'Aggiungi ai preferiti';
+  dom.lbFav.classList.toggle('is-on', preferita);
+  dom.lbFav.querySelector('use')?.setAttribute('href', preferita ? '#i-heart-fill' : '#i-heart');
+}
+
 function alternaPreferito(index) {
   const photo = state.shown[index];
   if (!photo) return;
@@ -343,6 +355,7 @@ function alternaPreferito(index) {
     syncTileLabel(tile, photo);
   }
   renderDaybar();
+  if (lightboxOpen()) syncLbFav();
 
   /* Se si sta guardando solo i preferiti, quella tolta deve sparire */
   if (state.filtro === FILTRO_PREFERITI) applicaFiltro(FILTRO_PREFERITI);
@@ -1189,6 +1202,10 @@ function azzeraZoom() {
   if (zoomFrame) { cancelAnimationFrame(zoomFrame); zoomFrame = 0; }
   dom.lbZoom.classList.remove('animato');
   dom.lbZoom.style.transform = 'translate3d(0, 0, 0) scale(1)';
+  /* Anche i comandi tornano a 100%: qui si salta applicaZoom, che di solito
+     è il punto in cui la barra si riallinea */
+  dom.zoomVal.textContent = '100%';
+  dom.zoomRange.value = '100';
   dom.lb.classList.remove('zoomed', 'hires');
   dom.lbHires.removeAttribute('src');
   punti.clear();
@@ -1324,12 +1341,7 @@ function showCurrent() {
   /* La nota cambia quando arriva l'originale */
   dom.lbInfoNote.textContent = ' · anteprima ridotta — usa “Scarica” per l’originale';
 
-  /* Cuore della barra e anteprima corrente nella striscia */
-  const preferita = state.favorites.has(photo.key);
-  dom.lbFav.setAttribute('aria-pressed', String(preferita));
-  dom.lbFav.title = preferita ? 'Togli dai preferiti' : 'Aggiungi ai preferiti';
-  dom.lbFav.classList.toggle('is-on', preferita);
-  dom.lbFav.querySelector('use')?.setAttribute('href', preferita ? '#i-heart-fill' : '#i-heart');
+  syncLbFav();
   syncFilmstrip();
 
   const single = state.shown.length < 2;
